@@ -73,7 +73,11 @@ export class TabSync {
     return () => this.listeners.delete(fn);
   }
 
+  private destroyed = false;
+
   destroy(): void {
+    if (this.destroyed) return;
+    this.destroyed = true;
     this.post({ t: 'bye', from: this.clientKey });
     if (this.timer) clearInterval(this.timer);
     this.doc.off('update', this.onUpdate);

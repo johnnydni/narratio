@@ -27,7 +27,17 @@ async function withLock<T>(name: string, fn: () => Promise<T>): Promise<T> {
 export async function openSession(): Promise<Session> {
   const doc = new Y.Doc();
   const persistence = new IndexeddbPersistence(DB_NAME, doc);
-  const channel = new BroadcastChannel(DB_NAME);
+  const bc = new BroadcastChannel(DB_NAME);
+  const channel = {
+    postMessage: (m: unknown) => bc.postMessage(m),
+    close: () => bc.close(),
+    set onmessage(fn: ((ev: { data: unknown }) => void) | null) {
+      bc.onmessage = fn ? (ev) => fn({ data: ev.data }) : null;
+    },
+    get onmessage() {
+      return null;
+    },
+  };
   const sync = new TabSync(doc, channel);
   const project = new Project(doc);
 
@@ -43,11 +53,16 @@ export async function openSession(): Promise<Session> {
     if (!project.meta.get('seeded')) seedDemo(project);
   });
 
+  // Beim Schließen oder Neuladen abmelden, damit andere Fenster nicht auf Phantome warten.
+  const onHide = () => sync.destroy();
+  window.addEventListener('pagehide', onHide, { once: true });
+
   return {
     project,
     sync,
     persistence,
     destroy() {
+      window.removeEventListener('pagehide', onHide);
       sync.destroy();
       void persistence.destroy();
       doc.destroy();

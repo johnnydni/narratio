@@ -79,11 +79,11 @@ export function seedDemo(project: Project): void {
     const d = 'd_tor';
     project.putNode(d, { id: 'n_start', type: 'start', x: 0, y: 120 });
     project.putNode(d, {
-      id: 'n_halt', type: 'line', x: 140, y: 60, speakerId: 'l_brann',
+      id: 'n_halt', type: 'line', x: 110, y: 70, speakerId: 'l_brann',
       variants: [{ id: 'va0', priority: 1, condition: null, text: '„Halt!“', direction: 'Hebt die Hand, ohne aufzusehen.' }],
     });
     project.putNode(d, {
-      id: 'n_greet', type: 'line', x: 520, y: 20, speakerId: 'l_brann',
+      id: 'n_greet', type: 'line', x: 400, y: 0, speakerId: 'l_brann',
       variants: [
         { id: 'va1', priority: 1, condition: { type: 'compare', varId: 'v_guide', op: '==', value: true }, text: '„Ihr kennt die Regeln, Reisende. Zoll zahlen, dann geht durch.“' },
         {
@@ -98,7 +98,7 @@ export function seedDemo(project: Project): void {
       ],
     });
     project.putNode(d, {
-      id: 'n_choice', type: 'choice', x: 140, y: 400,
+      id: 'n_choice', type: 'choice', x: 110, y: 380,
       options: [
         { id: 'o_show', text: `Die ${loreToken('l_klinge')} offen zeigen.`, condition: { type: 'compare', varId: 'v_blade', op: '>=', value: 1 }, effects: [{ id: 'ef1', varId: 'v_salzspur', mode: 'set', value: 3 }] },
         { id: 'o_pay', text: 'Zoll zahlen und weitergehen.', condition: null, effects: [] },
@@ -106,12 +106,12 @@ export function seedDemo(project: Project): void {
       ],
     });
     project.putNode(d, {
-      id: 'n_respect', type: 'line', x: 600, y: 380, speakerId: 'l_brann',
+      id: 'n_respect', type: 'line', x: 470, y: 370, speakerId: 'l_brann',
       variants: [{ id: 'va4', priority: 1, condition: null, text: '„Dann geh. Und lass sie in der Scheide, solange du in meiner Stadt bist.“' }],
     });
-    project.putNode(d, { id: 'n_end_ok', type: 'end', x: 1000, y: 400, outcome: 'Durchgelassen' });
-    project.putNode(d, { id: 'n_jump', type: 'jump', x: 600, y: 560, targetDialogId: 'd_ysa' });
-    project.putNode(d, { id: 'n_end_stare', type: 'end', x: 600, y: 680, outcome: 'Abgewiesen' });
+    project.putNode(d, { id: 'n_end_ok', type: 'end', x: 820, y: 390, outcome: 'Durchgelassen' });
+    project.putNode(d, { id: 'n_jump', type: 'jump', x: 470, y: 500, targetDialogId: 'd_ysa' });
+    project.putNode(d, { id: 'n_end_stare', type: 'end', x: 470, y: 570, outcome: 'Abgewiesen' });
 
     const e = (id: string, source: string, target: string, sourceHandle?: string) =>
       project.putEdge(d, { id, source, target, sourceHandle: sourceHandle ?? null });
