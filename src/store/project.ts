@@ -23,6 +23,7 @@ import type {
  *   dialogs         Y.Map    dialogId → Y.Map { nodes: Y.Map<id, Y.Map>, edges: Y.Map<id, Edge> }
  *   scene:<id>      Y.XmlFragment   Szenentext, vom Editor zeichengenau zusammengeführt
  *   media           Y.Map    hash → MediaMeta (ab Schema 2; die Dateien liegen im Blob-Speicher)
+ *   sketch:<id>     Y.Array  Bleistiftstriche über dem Szenentext (siehe sketch/model.ts)
  *
  * Langtext (Szenen) wird per CRDT zeichengenau gemergt. Kurze Felder (Titel, Varianten-Texte)
  * sind "letzte Änderung gewinnt" pro Feld. Für einen Einzelnutzer auf mehreren Geräten genügt das;
@@ -133,6 +134,8 @@ export class Project {
       // nicht entfernen. Er wird beim Leeren nur geleert.
       const frag = this.doc.getXmlFragment(`scene:${id}`);
       if (frag.length) frag.delete(0, frag.length);
+      const sketch = this.doc.getArray(`sketch:${id}`);
+      if (sketch.length) sketch.delete(0, sketch.length);
     });
   }
 

@@ -4,6 +4,7 @@ import type { DialogEdge, DialogGraph, DialogNode, Id, Item, MediaMeta, Profile,
 import { LORE_KINDS } from '../model/types';
 import { Project, SCHEMA_VERSION } from './project';
 import { schemaOf } from './migrate';
+import { sketchesToJson, writeSketches, type StrokeJson } from '../sketch/model';
 
 /**
  * Offenes Sicherungsformat (SY-02, EX-02, NFR Datenhoheit).
@@ -44,6 +45,8 @@ export interface BackupData {
   scenes: Record<Id, SceneNode[]>;
   /** Ab Schema 2. Nur Metadaten; die Dateien liegen unter Medien/ (siehe mediaPath). */
   media?: MediaMeta[];
+  /** Bleistiftstriche je Szene, am Absatz verankert (fehlt in älteren Sicherungen). */
+  sketches?: Record<Id, StrokeJson[]>;
 }
 
 /* ------------------------------------------------------------------ */
@@ -136,7 +139,13 @@ export function writeScene(frag: Y.XmlFragment, nodes: SceneNode[]): void {
 export function toBackupData(project: Project, now = new Date()): BackupData {
   const snap = project.snapshot();
   const scenes: Record<Id, SceneNode[]> = {};
-  for (const i of snap.items) if (i.type === 'scene') scenes[i.id] = sceneToJson(project.sceneFragment(i.id));
+  const sketches: Record<Id, StrokeJson[]> = {};
+  for (const i of snap.items) {
+    if (i.type !== 'scene') continue;
+    scenes[i.id] = sceneToJson(project.sceneFragment(i.id));
+    const strokes = sketchesToJson(project, i.id);
+    if (strokes.length) sketches[i.id] = strokes;
+  }
   return {
     format: BACKUP_FORMAT,
     formatVersion: BACKUP_FORMAT_VERSION,
@@ -149,6 +158,7 @@ export function toBackupData(project: Project, now = new Date()): BackupData {
     dialogs: snap.dialogs,
     scenes,
     media: project.listMedia(),
+    sketches,
   };
 }
 
@@ -188,6 +198,9 @@ export function restoreBackupData(project: Project, data: BackupData): void {
       if (name.startsWith('scene:')) {
         const frag = doc.getXmlFragment(name);
         if (frag.length) frag.delete(0, frag.length);
+      } else if (name.startsWith('sketch:')) {
+        const arr = doc.getArray(name);
+        if (arr.length) arr.delete(0, arr.length);
       }
     }
 
@@ -213,6 +226,7 @@ export function restoreBackupData(project: Project, data: BackupData): void {
       for (const e of graph.edges) edges.set(e.id, e);
     }
     for (const [sceneId, nodes] of Object.entries(data.scenes)) writeScene(project.sceneFragment(sceneId), nodes);
+    for (const [sceneId, strokes] of Object.entries(data.sketches ?? {})) writeSketches(project, sceneId, strokes);
     for (const m of data.media ?? []) project.media.set(m.hash, m);
   });
 }
