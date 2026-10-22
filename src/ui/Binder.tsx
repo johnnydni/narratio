@@ -1,7 +1,8 @@
-import { useMemo, useState, type DragEvent } from 'react';
+import { useMemo, useState, type DragEvent, type MouseEvent as ReactMouseEvent } from 'react';
 import { LORE_KINDS, STATUSES, type Id, type Item, type ItemType, type LoreKind } from '../model/types';
 import { useItems, useProjectSetting, useNav, useProject } from './state';
 import { Icon } from './icons';
+import { IconPicker, ItemIcon } from './itemIcons';
 import { newId, type Project } from '../store/project';
 
 export const TYPE_ICON: Record<ItemType, string> = { folder: 'folder', scene: 'scene', dialog: 'dialog', lore: 'lore' };
@@ -24,6 +25,13 @@ export function Binder() {
   const [renaming, setRenaming] = useState<Id | null>(null);
   const [dragId, setDragId] = useState<Id | null>(null);
   const [dropId, setDropId] = useState<Id | null>(null);
+  /** Rechtsklick auf einen Eintrag öffnet die Icon-Bibliothek an dieser Zeile. */
+  const [iconFor, setIconFor] = useState<{ id: Id; el: HTMLElement } | null>(null);
+  const iconItem = iconFor ? items.find((i) => i.id === iconFor.id) : undefined;
+  const onIconMenu = (e: ReactMouseEvent<HTMLElement>, id: Id) => {
+    e.preventDefault();
+    setIconFor({ id, el: e.currentTarget });
+  };
 
   const activeId = nav.view.kind === 'item' ? nav.view.id : null;
 
@@ -110,14 +118,16 @@ export function Binder() {
               nav.go({ kind: 'item', id: item.id });
             }}
             onDoubleClick={() => setRenaming(item.id)}
-            title="Doppelklick zum Umbenennen, ziehen zum Verschieben"
+            onContextMenu={(e) => onIconMenu(e, item.id)}
+            title="Doppelklick zum Umbenennen, ziehen zum Verschieben, Rechtsklick für Icon"
           >
             <span
               className="twisty"
               onClick={(e) => { if (isFolder) { e.stopPropagation(); setCollapsed({ ...collapsed, [item.id]: open }); } }}
             >
-              {isFolder ? <span className={`chev ${open ? '' : 'closed'}`}>▾</span> : <Icon name={TYPE_ICON[item.type]} size={13} />}
+              {isFolder ? <span className={`chev ${open ? '' : 'closed'}`}>▾</span> : <ItemIcon item={item} size={14} />}
             </span>
+            {isFolder && <span className="row-icon"><ItemIcon item={item} size={14} /></span>}
             <span className={`title ${item.title ? '' : 'empty'}`}>{item.title || 'Ohne Titel'}</span>
             {item.status && item.type !== 'folder' && <span className={`status-dot st-${item.status}`} title={STATUSES.find((s) => s.status === item.status)?.label} />}
           </button>
@@ -155,8 +165,8 @@ export function Binder() {
                   </button>
                 </div>
                 {open && list.length > 0 && <div className="binder-kids">{list.map((l) => (
-                  <button key={l.id} type="button" className={`row ${activeId === l.id ? 'active' : ''}`} style={{ paddingLeft: 32 }} onClick={() => nav.go({ kind: 'item', id: l.id })}>
-                    <span className={`kind-dot k-${kind}`} />
+                  <button key={l.id} type="button" className={`row ${activeId === l.id ? 'active' : ''}`} style={{ paddingLeft: 30 }} onClick={() => nav.go({ kind: 'item', id: l.id })} onContextMenu={(e) => onIconMenu(e, l.id)} title="Rechtsklick für Icon">
+                    <span className="row-icon"><ItemIcon item={l} size={14} /></span>
                     <span className={`title ${l.title ? '' : 'empty'}`}>{l.title || 'Ohne Titel'}</span>
                   </button>
                 ))}</div>}
@@ -180,6 +190,9 @@ export function Binder() {
           </button>
         </div>
       </div>
+      {iconFor && iconItem && (
+        <IconPicker key={iconFor.id} item={iconItem} anchor={iconFor.el} onChange={(patch) => project.updateItem(iconFor.id, patch)} onClose={() => setIconFor(null)} />
+      )}
       <div className="binder-foot">
         <button type="button" className="btn ghost small" onClick={() => create('scene', { status: 'idea' })}><Icon name="plus" size={13} /> Szene</button>
         <button type="button" className="btn ghost small" onClick={() => create('dialog', { status: 'idea' })}><Icon name="plus" size={13} /> Dialog</button>

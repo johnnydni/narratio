@@ -5,6 +5,7 @@ import { extractLoreIds } from '../model/refs';
 import { useItems, useMedia, useNav, useObserved, useProject, useWorld } from './state';
 import { MediaPicker, MediaThumb } from './mediaHooks';
 import { Icon } from './icons';
+import { IconButton } from './itemIcons';
 
 interface Use {
   kind: string;
@@ -65,6 +66,7 @@ export function LoreView({ item }: { item: Item }) {
         <div className="lore-page">
           <div>
             <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+              <IconButton item={item} onChange={(patch) => project.updateItem(item.id, patch)} size={20} />
               <select className="select" style={{ width: 'auto', minHeight: 28, padding: '2px 8px' }} aria-label="Art des Eintrags" value={item.loreKind ?? 'term'} onChange={(e) => project.updateItem(item.id, { loreKind: e.target.value as LoreKind })}>
                 {LORE_KINDS.map((k) => <option key={k.kind} value={k.kind}>{k.label}</option>)}
               </select>

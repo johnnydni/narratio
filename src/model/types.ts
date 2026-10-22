@@ -52,6 +52,10 @@ export interface Item {
   description?: string;
   /** Zugeordnete Medien (Hashes), z. B. Porträt einer Figur oder Konzeptbild einer Szene (ME-02). */
   mediaIds?: string[];
+  /** Gewähltes Icon aus der Icon-Bibliothek (Lucide-Name, z. B. "Sword"); fehlt es, gilt das Standard-Icon. */
+  icon?: string;
+  /** Farbe des Icons, Schlüssel aus ITEM_COLORS; fehlt sie, gilt die Farbe der Art. */
+  iconColor?: string;
 }
 
 /* ------------------------------------------------------------------ */
