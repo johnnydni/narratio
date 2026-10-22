@@ -71,6 +71,7 @@ export default function SceneView({ item }: { item: Item }) {
   const fragment = useMemo(() => project.sceneFragment(item.id), [project, item.id]);
   const media = useMedia();
   const [picker, setPicker] = useState<'text' | 'attach' | null>(null);
+  const imageBtn = useRef<HTMLButtonElement>(null);
   const mediaImage = useMemo(() => createMediaImage(MediaImageView, (files) => importImages(project, files)), [project]);
   const keyRef = useRef(onWritingKey);
   keyRef.current = onWritingKey;
@@ -129,14 +130,13 @@ export default function SceneView({ item }: { item: Item }) {
           <button type="button" className={`tool ${active('bulletList')}`} onClick={() => editor?.chain().focus().toggleBulletList().run()}>Liste</button>
           <span className="tool-sep" />
           <button type="button" className="tool on" onClick={() => editor?.chain().focus().insertContent('@').run()} title="Verweis auf einen Lore-Eintrag einfügen">@ Verweis</button>
-          <span style={{ position: 'relative' }}>
-            <button type="button" className="tool" onClick={() => setPicker(picker === 'text' ? null : 'text')} title="Bild einfügen (oder ins Textfeld ziehen bzw. einfügen)">
-              <Icon name="image" size={13} /> Bild
-            </button>
-            {picker === 'text' && (
-              <MediaPicker project={project} imagesOnly onClose={() => setPicker(null)} onPick={(hash) => editor && insertImages(editor, [hash])} />
-            )}
-          </span>
+          <button ref={imageBtn} type="button" className="tool" onClick={() => setPicker(picker === 'text' ? null : 'text')} title="Bild einfügen (oder ins Textfeld ziehen bzw. einfügen)">
+            <Icon name="image" size={13} /> Bild
+          </button>
+          {/* Die Werkzeugleiste scrollt waagerecht und schneidet ab; die Auswahl schwebt deshalb darüber. */}
+          {picker === 'text' && (
+            <MediaPicker project={project} imagesOnly anchor={imageBtn.current} onClose={() => setPicker(null)} onPick={(hash) => editor && insertImages(editor, [hash])} />
+          )}
           <span className="spacer" />
           <span className="muted small" style={{ marginRight: 12 }} data-testid="word-count">{words} Wörter</span>
           <button type="button" className={`btn small ${focus ? 'primary' : ''}`} aria-pressed={focus} onClick={() => setFocus(!focus)}>
