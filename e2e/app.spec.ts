@@ -101,3 +101,36 @@ test('Immersion: Schreiben blendet die Oberfläche aus, Mausbewegung holt sie zu
   await page.mouse.move(400, 300);
   await expect(page.locator('html')).not.toHaveClass(/immersed/);
 });
+
+test('Sicherung: ZIP herunterladen, Text ändern, wiederherstellen', async ({ page }) => {
+  await page.goto('/');
+  await expect(page.locator('.ProseMirror')).toContainText('Der Wind trug');
+  await page.getByRole('button', { name: 'Prüfen und exportieren' }).click();
+
+  const [dl] = await Promise.all([page.waitForEvent('download'), page.getByRole('button', { name: 'Sicherung herunterladen' }).click()]);
+  expect(dl.suggestedFilename()).toMatch(/^Aschenstadt_\d{4}-\d{2}-\d{2}_\d{2}-\d{2}\.zip$/);
+  const zipPath = await dl.path();
+
+  // Szene verändern …
+  await page.getByRole('navigation').getByRole('button', { name: /Ankunft am Nordtor/ }).click();
+  await page.locator('.ProseMirror p').last().click();
+  await page.keyboard.press('End');
+  await page.keyboard.type(' Nach der Sicherung geschrieben.');
+  await expect(page.locator('.ProseMirror')).toContainText('Nach der Sicherung geschrieben.');
+
+  // … und die Sicherung wieder einlesen. Nach dem Tippen ist die Oberfläche ausgeblendet.
+  await page.mouse.move(50, 50);
+  await page.mouse.move(400, 400);
+  await expect(page.locator('html')).not.toHaveClass(/immersed/);
+  await page.getByRole('button', { name: 'Prüfen und exportieren' }).click();
+  await page.getByTestId('backup-file').setInputFiles(zipPath);
+  await expect(page.getByRole('alertdialog')).toContainText('ersetzt den aktuellen Stand');
+  await page.getByRole('button', { name: 'Wiederherstellen', exact: true }).first().click();
+  await expect(page.getByTestId('backup-message')).toContainText('wiederhergestellt');
+  await expect(page.getByTestId('backup-list')).toContainText('vor dem Wiederherstellen');
+  if (shots) await page.screenshot({ path: `${shots}/07-sicherung.png`, fullPage: true });
+
+  await page.getByRole('navigation').getByRole('button', { name: /Ankunft am Nordtor/ }).click();
+  await expect(page.locator('.ProseMirror')).toContainText('Der Wind trug');
+  await expect(page.locator('.ProseMirror')).not.toContainText('Nach der Sicherung geschrieben.');
+});

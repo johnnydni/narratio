@@ -1,18 +1,9 @@
-import { useMemo, useRef, useState } from 'react';
-import * as Y from 'yjs';
+import { useMemo, useState } from 'react';
 import { LORE_KINDS } from '../model/types';
 import { exportUnreal, loreToCsv } from '../model/exportUnreal';
 import { useItems, useNav, useProject, useWorld } from './state';
 import { Icon } from './icons';
-
-function download(name: string, data: BlobPart, type: string) {
-  const url = URL.createObjectURL(new Blob([data], { type }));
-  const a = document.createElement('a');
-  a.href = url;
-  a.download = name;
-  a.click();
-  setTimeout(() => URL.revokeObjectURL(url), 1000);
-}
+import { BackupPanel, download } from './BackupPanel';
 
 /** Prüfen und exportieren (LR-06, EX-02, EX-03, EX-05). */
 export function ExportView() {
@@ -21,8 +12,6 @@ export function ExportView() {
   useWorld();
   const nav = useNav();
   const [tick, setTick] = useState(0);
-  const [imported, setImported] = useState<string | null>(null);
-  const fileRef = useRef<HTMLInputElement>(null);
 
   // eslint-disable-next-line react-hooks/exhaustive-deps
   const result = useMemo(() => exportUnreal(project.snapshot()), [items, tick]);
@@ -76,30 +65,7 @@ export function ExportView() {
           </div>
         </div>
 
-        <div className="field">
-          <span className="label">Vollständige Sicherung</span>
-          <p className="muted small" style={{ margin: 0, maxWidth: 680, lineHeight: 1.6 }}>
-            Das ganze Projekt verlustfrei als eine Datei, inklusive Versionsinformation. Beim Einlesen werden die Inhalte zusammengeführt, nicht überschrieben.
-          </p>
-          <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', alignItems: 'center' }}>
-            <button type="button" className="btn small" onClick={() => download(`${base}-${new Date().toISOString().slice(0, 10)}.narratio`, new Uint8Array(Y.encodeStateAsUpdate(project.doc)), 'application/octet-stream')}>
-              Sicherung herunterladen
-            </button>
-            <button type="button" className="btn small" onClick={() => fileRef.current?.click()}>Sicherung einlesen</button>
-            <input ref={fileRef} type="file" accept=".narratio" hidden onChange={async (e) => {
-              const f = e.target.files?.[0];
-              if (!f) return;
-              try {
-                Y.applyUpdate(project.doc, new Uint8Array(await f.arrayBuffer()));
-                setImported(`„${f.name}“ eingelesen und zusammengeführt.`);
-              } catch {
-                setImported(`„${f.name}“ ist keine gültige narratio-Sicherung.`);
-              }
-              e.target.value = '';
-            }} />
-            {imported && <span className="muted small">{imported}</span>}
-          </div>
-        </div>
+        <BackupPanel />
 
         {result.ok && (
           <div className="field">
