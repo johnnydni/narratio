@@ -388,3 +388,58 @@ test('Icon-Bibliothek: Icon und Farbe für Einträge wählen', async ({ page }) 
   await picker.getByRole('button', { name: 'Standard' }).click();
   await expect(binder.getByRole('button', { name: 'Ankunft am Nordtor' }).locator('svg.lucide-castle')).toHaveCount(0);
 });
+
+test('Einstellungen: Darstellung wirkt sofort, Klang bleibt mit der Kopfleiste gleich', async ({ page }) => {
+  await page.goto('/#/p/default');
+  await expect(page.locator('.ProseMirror')).toContainText('Der Wind');
+  await page.keyboard.press('Control+Comma');
+  const dialog = page.getByTestId('settings');
+  await expect(dialog).toBeVisible();
+  if (shots) await page.screenshot({ path: `${shots}/settings-darstellung.png` });
+
+  // Textgröße und Schrift landen als Variablen am Dokument und damit im Editor
+  await dialog.getByLabel('Textgröße').fill('22');
+  await dialog.getByRole('radio', { name: 'Inter' }).click();
+  await expect(page.locator('.ProseMirror')).toHaveCSS('font-size', '22px');
+  await dialog.getByRole('radio', { name: 'Dunkel' }).click();
+  await expect(page.locator('html')).toHaveAttribute('data-theme', 'dark');
+  await dialog.getByRole('radio', { name: 'Wie System' }).click();
+  await expect(page.locator('html')).not.toHaveAttribute('data-theme', /.+/);
+
+  // Klang im Menü abschalten: das Kopfhörer-Popover sieht es ohne Neuladen
+  await dialog.getByRole('button', { name: 'Klang' }).click();
+  await dialog.getByRole('checkbox').first().uncheck();
+  if (shots) await page.screenshot({ path: `${shots}/settings-klang.png` });
+  await page.keyboard.press('Escape');
+  await expect(dialog).toBeHidden();
+  await page.getByRole('button', { name: 'Klang beim Schreiben' }).click();
+  await expect(page.locator('.ambient-pop input[type=checkbox]').first()).not.toBeChecked();
+
+  // Nach dem Neuladen bleibt alles
+  await page.reload();
+  await expect(page.locator('.ProseMirror')).toHaveCSS('font-size', '22px');
+
+  await page.getByRole('button', { name: 'Einstellungen' }).click();
+  await dialog.getByRole('button', { name: 'Sicherung und Speicher' }).click();
+  await expect(dialog.getByTestId('settings-persisted')).toBeVisible();
+  if (shots) await page.screenshot({ path: `${shots}/settings-speicher.png` });
+  await dialog.getByRole('button', { name: 'Tastenkürzel' }).click();
+  if (shots) await page.screenshot({ path: `${shots}/settings-kuerzel.png` });
+});
+
+test('Einstellungen gelten in allen Fenstern, die Ansicht bleibt je Fenster', async ({ browser }) => {
+  const context = await browser.newContext();
+  const a = await context.newPage();
+  const b = await context.newPage();
+  await a.goto('/#/p/default');
+  await b.goto('/#/p/default');
+  await expect(b.locator('.ProseMirror')).toContainText('Der Wind');
+  await a.keyboard.press('Control+Comma');
+  await a.getByTestId('settings').getByRole('radio', { name: 'Breit' }).click();
+  await expect(b.locator('.page').first()).toHaveCSS('max-width', '800px');
+  await a.keyboard.press('Escape');
+  await a.getByRole('button', { name: 'Torverhör: Brann' }).click();
+  await expect(a.locator('.react-flow__node').first()).toBeVisible();
+  await expect(b.locator('.ProseMirror')).toContainText('Der Wind');
+  await context.close();
+});

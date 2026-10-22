@@ -18,6 +18,8 @@ import { download } from './BackupPanel';
 import { Icon } from './icons';
 import { ToastProvider, useToast } from './motion';
 import { useTheme } from './theme';
+import { prefersReducedMotion } from './prefs';
+import { MOD, SettingsDialog } from './SettingsDialog';
 
 /**
  * Die Bibliothek: jedes Projekt ein Buch im Regal. Die Breite des Rückens wächst mit dem
@@ -274,6 +276,19 @@ function LibraryInner({ onReady }: { onReady: () => void }) {
   const [selected, setSelected] = useState<string | null>(null);
   const [opening, setOpening] = useState<string | null>(null);
   const [showTrash, setShowTrash] = useState(false);
+  const [settingsOpen, setSettingsOpen] = useState(false);
+  const closeSettings = useCallback(() => setSettingsOpen(false), []);
+
+  useEffect(() => {
+    const onKey = (e: KeyboardEvent) => {
+      if ((e.metaKey || e.ctrlKey) && !e.shiftKey && !e.altKey && e.key === ',') {
+        e.preventDefault();
+        setSettingsOpen((o) => !o);
+      }
+    };
+    window.addEventListener('keydown', onKey);
+    return () => window.removeEventListener('keydown', onKey);
+  }, []);
   const [confirmPurge, setConfirmPurge] = useState<string | null>(null);
   const fileRef = useRef<HTMLInputElement>(null);
 
@@ -296,7 +311,7 @@ function LibraryInner({ onReady }: { onReady: () => void }) {
   const open = useCallback((id: string) => {
     setSelected(id);
     setOpening(id);
-    const reduce = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+    const reduce = prefersReducedMotion();
     setTimeout(() => { location.hash = `#/p/${id}`; }, reduce ? 0 : 420);
   }, []);
 
@@ -340,7 +355,11 @@ function LibraryInner({ onReady }: { onReady: () => void }) {
         <button type="button" className="icon-btn" aria-label={theme.isDark ? 'Helles Design' : 'Dunkles Design'} onClick={theme.toggle}>
           <Icon name={theme.isDark ? 'sun' : 'moon'} />
         </button>
+        <button type="button" className="icon-btn" aria-label="Einstellungen" title={`Einstellungen (${MOD}+,)`} onClick={() => setSettingsOpen(true)}>
+          <Icon name="settings" />
+        </button>
       </header>
+      <SettingsDialog open={settingsOpen} onClose={closeSettings} inProject={false} />
 
       <main className="lib-main">
         <div className="lib-head">

@@ -1,4 +1,4 @@
-import { createContext, useCallback, useContext, useEffect, useMemo, useState, useSyncExternalStore } from 'react';
+import { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState, useSyncExternalStore } from 'react';
 import type * as Y from 'yjs';
 import type { Session } from '../store/session';
 import type { Project } from '../store/project';
@@ -93,27 +93,91 @@ export function useNav(): Nav {
 
 /* ---------------- Lokale Einstellungen (pro Gerät) ---------------- */
 
-export function useLocalSetting<T>(key: string, initial: T | (() => T)): [T, (v: T) => void] {
-  const init = () => (typeof initial === 'function' ? (initial as () => T)() : initial);
-  const [value, setValue] = useState<T>(() => {
+/*
+ * Ein gemeinsamer Speicher für alle Einstellungen: Ändert das Einstellungsmenü den Klang, merkt es
+ * die Kopfleiste sofort. Jedes Fenster liest einen Schlüssel einmal und hält ihn dann selbst;
+ * nur echte Geräte-Einstellungen ziehen in anderen Fenstern nach. Die geöffnete Ansicht oder
+ * eingeklappte Ordner bleiben je Fenster, sonst würden zwei Fenster einander hinterherspringen.
+ * Ohne localStorage (privater Modus) bleiben die Werte für diese Sitzung im Speicher.
+ */
+const SHARED_ACROSS_WINDOWS = new Set(['theme', 'appearance', 'writing', 'immersion', 'sketch', 'focusMode'].map((k) => `narratio:${k}`));
+const cache = new Map<string, string | null>();
+const listeners = new Map<string, Set<() => void>>();
+
+function readRaw(key: string): string | null {
+  if (!cache.has(key)) {
+    let raw: string | null = null;
     try {
-      const raw = localStorage.getItem(`narratio:${key}`);
-      return raw === null ? init() : (JSON.parse(raw) as T);
+      raw = localStorage.getItem(key);
+    } catch {
+      /* privater Modus */
+    }
+    cache.set(key, raw);
+  }
+  return cache.get(key) ?? null;
+}
+
+function notify(key: string) {
+  listeners.get(key)?.forEach((fn) => fn());
+}
+
+function subscribeKey(key: string, fn: () => void): () => void {
+  let set = listeners.get(key);
+  if (!set) listeners.set(key, (set = new Set()));
+  set.add(fn);
+  return () => set.delete(fn);
+}
+
+if (typeof window !== 'undefined') {
+  window.addEventListener('storage', (e) => {
+    if (e.key === null || !SHARED_ACROSS_WINDOWS.has(e.key)) return;
+    cache.set(e.key, e.newValue);
+    notify(e.key);
+  });
+}
+
+/** Liest eine Einstellung außerhalb von React (Startbildschirm, Audio). */
+export function readLocalSetting<T>(key: string, fallback: T): T {
+  const raw = readRaw(`narratio:${key}`);
+  if (raw === null) return fallback;
+  try {
+    return JSON.parse(raw) as T;
+  } catch {
+    return fallback;
+  }
+}
+
+export function writeLocalSetting<T>(key: string, v: T) {
+  const full = `narratio:${key}`;
+  const raw = JSON.stringify(v);
+  cache.set(full, raw);
+  try {
+    localStorage.setItem(full, raw);
+  } catch {
+    /* privater Modus: nur im Speicher */
+  }
+  notify(full);
+}
+
+export function useLocalSetting<T>(key: string, initial: T | (() => T)): [T, (v: T) => void] {
+  const full = `narratio:${key}`;
+  const raw = useSyncExternalStore(
+    useCallback((fn: () => void) => subscribeKey(full, fn), [full]),
+    () => readRaw(full),
+  );
+  // Der Startwert wird nur gebraucht, solange nichts gespeichert ist; useMemo hält ihn stabil.
+  const initRef = useRef(initial);
+  initRef.current = initial;
+  const value = useMemo<T>(() => {
+    const init = () => (typeof initRef.current === 'function' ? (initRef.current as () => T)() : initRef.current);
+    if (raw === null) return init();
+    try {
+      return JSON.parse(raw) as T;
     } catch {
       return init();
     }
-  });
-  const set = useCallback(
-    (v: T) => {
-      setValue(v);
-      try {
-        localStorage.setItem(`narratio:${key}`, JSON.stringify(v));
-      } catch {
-        /* privater Modus: nur im Speicher */
-      }
-    },
-    [key],
-  );
+  }, [raw]);
+  const set = useCallback((v: T) => writeLocalSetting(key, v), [key]);
   return [value, set];
 }
 
