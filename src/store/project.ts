@@ -47,7 +47,8 @@ export class Project {
   readonly dialogs: Y.Map<Y.Map<Y.Map<unknown>>>;
   readonly media: Y.Map<MediaMeta>;
 
-  constructor(readonly doc: Y.Doc) {
+  /** `id` bestimmt, wo Medien und Sicherungen dieses Projekts liegen. */
+  constructor(readonly doc: Y.Doc, readonly id = 'default') {
     this.meta = doc.getMap('meta');
     this.items = doc.getMap('items');
     this.worldVars = doc.getMap('worldVars');

@@ -1,6 +1,6 @@
 import { useMemo, useState, type DragEvent } from 'react';
 import { LORE_KINDS, STATUSES, type Id, type Item, type ItemType, type LoreKind } from '../model/types';
-import { useItems, useLocalSetting, useNav, useProject } from './state';
+import { useItems, useProjectSetting, useNav, useProject } from './state';
 import { Icon } from './icons';
 import { newId, type Project } from '../store/project';
 
@@ -20,7 +20,7 @@ export function Binder() {
   const project = useProject();
   const items = useItems();
   const nav = useNav();
-  const [collapsed, setCollapsed] = useLocalSetting<Record<Id, boolean>>('collapsed', {});
+  const [collapsed, setCollapsed] = useProjectSetting<Record<Id, boolean>>('collapsed', {});
   const [renaming, setRenaming] = useState<Id | null>(null);
   const [dragId, setDragId] = useState<Id | null>(null);
   const [dropId, setDropId] = useState<Id | null>(null);

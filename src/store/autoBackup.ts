@@ -19,6 +19,8 @@ export type BackupReason = 'auto' | 'manuell' | 'vor-wiederherstellen' | 'vor-mi
 export interface LocalBackupMeta {
   /** Zeitpunkt als ISO-String, zugleich Schlüssel. */
   createdAt: string;
+  /** Projekt, zu dem die Sicherung gehört. Ältere Einträge ohne Angabe gehören zum ersten Projekt. */
+  projectId?: string;
   reason: BackupReason;
   name: string;
   size: number;
@@ -85,11 +87,20 @@ export function selectToKeep(entries: LocalBackupMeta[], now: Date): Set<string>
   return keep;
 }
 
-export async function listLocalBackups(): Promise<LocalBackupMeta[]> {
+export async function listLocalBackups(projectId = 'default'): Promise<LocalBackupMeta[]> {
   const all = ((await tx<LocalBackup[]>(STORE, 'readonly', (s) => s.getAll())) ?? []) as LocalBackup[];
   return all
-    .map(({ createdAt, reason, name, size }) => ({ createdAt, reason, name, size }))
+    .filter((b) => (b.projectId ?? 'default') === projectId)
+    .map(({ createdAt, reason, name, size, projectId: p }) => ({ createdAt, reason, name, size, projectId: p ?? 'default' }))
     .sort((a, b) => b.createdAt.localeCompare(a.createdAt));
+}
+
+/** Entfernt alle Browser-Sicherungen eines Projekts (beim endgültigen Löschen). */
+export async function deleteProjectBackups(projectId: string): Promise<void> {
+  const keys = (await listLocalBackups(projectId)).map((b) => b.createdAt);
+  await tx(STORE, 'readwrite', (s) => {
+    for (const k of keys) s.delete(k);
+  });
 }
 
 export async function getLocalBackup(createdAt: string): Promise<Uint8Array<ArrayBuffer> | undefined> {
@@ -99,14 +110,13 @@ export async function getLocalBackup(createdAt: string): Promise<Uint8Array<Arra
 
 export async function saveLocalBackup(project: Project, reason: BackupReason, now = new Date()): Promise<LocalBackupMeta> {
   const zip = createBackupZip(project, now);
-  const entry: LocalBackup = { createdAt: now.toISOString(), reason, name: backupFileName(project, now), size: zip.byteLength, zip };
+  const entry: LocalBackup = { createdAt: now.toISOString(), projectId: project.id, reason, name: backupFileName(project, now), size: zip.byteLength, zip };
   await tx(STORE, 'readwrite', (s) => s.put(entry));
-  const keep = selectToKeep(await listLocalBackups(), now);
+  // Aufräumen nur innerhalb dieses Projekts; die Sicherungen anderer Projekte bleiben unberührt.
+  const mine = await listLocalBackups(project.id);
+  const keep = selectToKeep(mine, now);
   await tx(STORE, 'readwrite', (s) => {
-    const req = s.getAllKeys();
-    req.onsuccess = () => {
-      for (const k of req.result) if (!keep.has(String(k))) s.delete(k);
-    };
+    for (const b of mine) if (!keep.has(b.createdAt)) s.delete(b.createdAt);
   });
   const { zip: _, ...meta } = entry;
   return meta;

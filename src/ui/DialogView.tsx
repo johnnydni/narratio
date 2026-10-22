@@ -20,7 +20,7 @@ import { makeContext } from '../model/conditions';
 import { selectVariant } from '../model/variants';
 import { validateDialog } from '../model/validate';
 import { newId } from '../store/project';
-import { useItems, useLocalSetting, useObserved, useProject, useWorld } from './state';
+import { useItems, useProjectSetting, useObserved, useProject, useWorld } from './state';
 import { nodeTypes, type FlowNode } from './dialog/nodes';
 import { Inspector } from './dialog/Inspector';
 import { Icon } from './icons';
@@ -45,7 +45,7 @@ function Canvas({ item }: { item: Item }) {
   const dialogMap = project.dialogMap(item.id);
   const graph = useObserved([dialogMap as unknown as Y.AbstractType<unknown>], () => project.readGraph(item.id));
   const [selected, setSelected] = useState<Id | null>(null);
-  const [profileId, setProfileId] = useLocalSetting<string>(`profile:${item.id}`, '');
+  const [profileId, setProfileId] = useProjectSetting<string>(`profile:${item.id}`, '');
   const profile = profiles.find((p) => p.id === profileId) ?? null;
 
   const characters = useMemo(() => items.filter((i) => i.type === 'lore' && i.loreKind === 'character').sort((a, b) => a.title.localeCompare(b.title)), [items]);

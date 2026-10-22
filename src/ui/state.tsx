@@ -93,13 +93,14 @@ export function useNav(): Nav {
 
 /* ---------------- Lokale Einstellungen (pro Gerät) ---------------- */
 
-export function useLocalSetting<T>(key: string, initial: T): [T, (v: T) => void] {
+export function useLocalSetting<T>(key: string, initial: T | (() => T)): [T, (v: T) => void] {
+  const init = () => (typeof initial === 'function' ? (initial as () => T)() : initial);
   const [value, setValue] = useState<T>(() => {
     try {
       const raw = localStorage.getItem(`narratio:${key}`);
-      return raw === null ? initial : (JSON.parse(raw) as T);
+      return raw === null ? init() : (JSON.parse(raw) as T);
     } catch {
-      return initial;
+      return init();
     }
   });
   const set = useCallback(
@@ -114,4 +115,13 @@ export function useLocalSetting<T>(key: string, initial: T): [T, (v: T) => void]
     [key],
   );
   return [value, set];
+}
+
+/**
+ * Wie useLocalSetting, aber je Projekt (zuletzt geöffnete Ansicht, eingeklappte Ordner …).
+ * Das erste Projekt behält die alten Schlüssel, damit nichts verloren geht.
+ */
+export function useProjectSetting<T>(key: string, initial: T | (() => T)): [T, (v: T) => void] {
+  const id = useSession().project.id;
+  return useLocalSetting<T>(id === 'default' ? key : `${id}:${key}`, initial);
 }
