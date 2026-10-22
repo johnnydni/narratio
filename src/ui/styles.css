@@ -20,6 +20,7 @@
   --ref-place: #7a5410;
   --ref-item-bg: #eeeaf8;
   --ref-item: #53399a;
+  --ic-teal: #17695c; --ic-blue: #2f5fa8; --ic-violet: #6a4bb5; --ic-rose: #b0457a; --ic-red: #b4432f; --ic-amber: #a8700f; --ic-olive: #5f7a1f; --ic-stone: #6b6b70;
   --canvas-dot: #d9d9d3;
   --shadow: 0 6px 20px rgba(26, 26, 28, 0.08);
   --serif: 'Literata', Georgia, 'Times New Roman', serif;
@@ -62,6 +63,7 @@
     --ref-place: #e0b45c;
     --ref-item-bg: #29243a;
     --ref-item: #b9a8ef;
+    --ic-teal: #62c4af; --ic-blue: #7fa8ea; --ic-violet: #b9a8ef; --ic-rose: #ec8fbd; --ic-red: #ef8a76; --ic-amber: #e0b45c; --ic-olive: #b0cc6a; --ic-stone: #a5a5ad;
     --canvas-dot: #2a2a2f;
     --shadow: 0 6px 24px rgba(0, 0, 0, 0.4);
     --shadow-pop: 0 16px 44px rgba(0, 0, 0, 0.55), 0 2px 8px rgba(0, 0, 0, 0.35);
@@ -94,6 +96,7 @@
   --ref-place: #e0b45c;
   --ref-item-bg: #29243a;
   --ref-item: #b9a8ef;
+  --ic-teal: #62c4af; --ic-blue: #7fa8ea; --ic-violet: #b9a8ef; --ic-rose: #ec8fbd; --ic-red: #ef8a76; --ic-amber: #e0b45c; --ic-olive: #b0cc6a; --ic-stone: #a5a5ad;
   --canvas-dot: #2a2a2f;
   --shadow: 0 6px 24px rgba(0, 0, 0, 0.4);
   --shadow-pop: 0 16px 44px rgba(0, 0, 0, 0.55), 0 2px 8px rgba(0, 0, 0, 0.35);
@@ -759,3 +762,44 @@ kbd { font-family: var(--sans); font-size: 11px; border: 1px solid var(--line); 
   .lib-title { font-size: 30px; }
   .shelf-books { padding: 20px 12px 0; }
 }
+
+/* Icons der Einträge und Icon-Bibliothek */
+.item-icon { flex-shrink: 0; color: var(--muted); }
+.item-icon.t-lore { color: var(--accent); }
+.item-icon.k-place { color: var(--ref-place); }
+.item-icon.k-item, .item-icon.k-faction { color: var(--ref-item); }
+.row .item-icon { display: block; }
+.row .twisty.has-icon { width: 16px; display: inline-flex; justify-content: center; }
+.row .row-icon { width: 16px; display: inline-flex; justify-content: center; flex-shrink: 0; }
+.icon-choose {
+  display: inline-flex; align-items: center; justify-content: center; width: 34px; height: 34px; border-radius: 9px; border: 1px solid transparent;
+  background: transparent; cursor: pointer; transition: background-color var(--dur) ease, border-color var(--dur) ease, transform var(--dur) var(--ease-out);
+}
+.icon-choose:hover { background: var(--line-soft); border-color: var(--line); }
+.icon-choose:active { transform: scale(0.94); }
+.icon-choose[aria-expanded='true'] { background: var(--accent-soft); border-color: color-mix(in srgb, var(--accent) 40%, transparent); }
+.icon-choose.small { width: 26px; height: 26px; border-radius: 7px; }
+.kicker { display: flex; align-items: center; gap: 6px; }
+.icon-picker {
+  z-index: 60; width: 340px; max-width: calc(100vw - 16px); background: var(--surface); border: 1px solid var(--line); border-radius: 12px;
+  box-shadow: var(--shadow-pop); padding: 10px; display: flex; flex-direction: column; gap: 8px; animation: pop-in var(--dur) var(--ease-out); transform-origin: top left;
+}
+.ip-head { display: flex; gap: 8px; align-items: center; }
+.ip-head .input { flex: 1; min-height: 32px; }
+.ip-preview { width: 32px; height: 32px; display: inline-flex; align-items: center; justify-content: center; border-radius: 8px; background: var(--line-soft); flex-shrink: 0; }
+.ip-colors { display: flex; gap: 6px; align-items: center; min-height: 26px; }
+.ip-swatch { width: 18px; height: 18px; border-radius: 50%; border: 0; padding: 0; cursor: pointer; box-shadow: 0 0 0 1px color-mix(in srgb, var(--text) 12%, transparent) inset; transition: transform var(--dur-fast) var(--ease-out), box-shadow var(--dur-fast) ease; }
+.ip-swatch:hover { transform: scale(1.15); }
+.ip-swatch.on { box-shadow: 0 0 0 2px var(--surface), 0 0 0 3.5px var(--text); }
+.ip-swatch.auto { background: conic-gradient(var(--accent) 0 33%, var(--ref-place) 0 66%, var(--ref-item) 0); }
+.ip-scroll { max-height: 320px; overflow: auto; margin: 0 -4px; padding: 0 4px; overscroll-behavior: contain; }
+.ip-group { font-size: 11px; font-weight: 600; letter-spacing: 0.06em; text-transform: uppercase; color: var(--muted); margin: 10px 2px 4px; }
+.ip-group:first-child { margin-top: 2px; }
+.ip-grid { display: grid; grid-template-columns: repeat(8, 1fr); gap: 2px; }
+.ip-cell {
+  aspect-ratio: 1; display: inline-flex; align-items: center; justify-content: center; border: 0; border-radius: 7px; background: transparent; color: var(--text); cursor: pointer;
+  transition: background-color var(--dur-fast) ease, transform var(--dur-fast) var(--ease-out);
+}
+.ip-cell:hover, .ip-cell:focus-visible { background: var(--line-soft); transform: scale(1.08); }
+.ip-cell.on { background: var(--accent-soft); outline: 1.5px solid var(--accent); }
+.ip-empty { padding: 16px 4px; text-align: center; }

@@ -24,6 +24,7 @@ import { useItems, useProjectSetting, useObserved, useProject, useWorld } from '
 import { nodeTypes, type FlowNode } from './dialog/nodes';
 import { Inspector } from './dialog/Inspector';
 import { Icon } from './icons';
+import { IconButton } from './itemIcons';
 
 const ADD: { type: DialogNodeType; label: string }[] = [
   { type: 'line', label: 'Zeile' },
@@ -162,6 +163,7 @@ function Canvas({ item }: { item: Item }) {
   return (
     <div className="dialog">
       <div className="dialog-bar">
+        <IconButton item={item} onChange={(patch) => project.updateItem(item.id, patch)} size={16} small />
         {ADD.map((a) => (
           <button key={a.type} type="button" className="btn ghost small" onClick={() => addNode(a.type)}>
             <Icon name="plus" size={13} /> {a.label}

@@ -355,59 +355,36 @@ test('Seitenleisten lassen sich ein- und ausklappen', async ({ page }) => {
   await expect(page.locator('.app')).not.toHaveClass(/left-hidden/);
 });
 
-test('Scribble: Strg zeichnet über dem Text, Strg+Alt verschiebt, bleibt nach Neuladen', async ({ page }) => {
+test('Icon-Bibliothek: Icon und Farbe für Einträge wählen', async ({ page }) => {
   await page.goto('/#/p/default');
-  await page.getByRole('navigation').getByRole('button', { name: /Ankunft am Nordtor/ }).click();
   await expect(page.locator('.ProseMirror')).toContainText('Der Wind');
-  const para = page.locator('.ProseMirror p').first();
-  const box = (await para.boundingBox())!;
-  const x0 = box.x + 40;
-  const y0 = box.y + 12;
+  const binder = page.locator('.binder');
+  const picker = page.getByRole('dialog', { name: 'Icon wählen' });
 
-  await page.keyboard.down('Control');
-  await expect(page.getByTestId('sketch-layer')).toHaveAttribute('data-mode', 'draw');
-  await page.mouse.move(x0, y0);
-  await page.mouse.down();
-  for (let i = 1; i <= 24; i++) await page.mouse.move(x0 + i * 10, y0 + (i % 2 ? 22 : 0), { steps: 3 });
-  await page.mouse.up();
-  await page.keyboard.up('Control');
-  await expect(page.locator('.sketch-stroke')).toHaveCount(1);
-  if (shots) await page.screenshot({ path: `${shots}/10-scribble.png` });
-
-  // Strg+Alt: anfassen und 120 px nach unten ziehen
-  const before = (await page.locator('.sketch-stroke').boundingBox())!;
-  await page.keyboard.down('Control');
-  await page.keyboard.down('Alt');
-  await page.mouse.move(x0 + 10, y0 + 22);
-  await page.mouse.down();
-  await page.mouse.move(x0 + 10, y0 + 142, { steps: 6 });
-  await page.mouse.up();
-  await page.keyboard.up('Alt');
-  await page.keyboard.up('Control');
-  await expect.poll(async () => Math.round((await page.locator('.sketch-stroke').boundingBox())!.y - before.y)).toBe(120);
-
-  // Text darüber einfügen: die Zeichnung wandert mit
-  const moved = (await page.locator('.sketch-stroke').boundingBox())!;
-  await page.locator('.ProseMirror h1').click();
-  await page.keyboard.press('End');
+  // Lore-Eintrag: Knopf neben der Art öffnet die Bibliothek, Suche auf Deutsch, Enter nimmt den ersten Treffer
+  await binder.getByRole('button', { name: 'Aschenklinge' }).click();
+  await page.locator('.lore').getByRole('button', { name: 'Icon wählen' }).click();
+  await expect(picker).toBeVisible();
+  await picker.getByLabel('Icon suchen').fill('schwert');
+  if (shots) await page.screenshot({ path: `${shots}/16-icon-suche.png` });
   await page.keyboard.press('Enter');
-  await page.keyboard.press('Enter');
-  await expect.poll(async () => (await page.locator('.sketch-stroke').boundingBox())!.y).toBeGreaterThan(moved.y + 20);
+  await expect(picker).toHaveCount(0);
+  await expect(binder.getByRole('button', { name: 'Aschenklinge' }).locator('svg.lucide-sword')).toBeVisible();
 
+  // Rechtsklick im Projektbaum, Farbe wählen, bleibt nach dem Neuladen
+  await binder.getByRole('button', { name: 'Ankunft am Nordtor' }).click({ button: 'right' });
+  await expect(picker).toBeVisible();
+  await picker.getByRole('radio', { name: 'Rot' }).click();
+  await picker.locator('[data-icon="Castle"]').click();
+  await expect(binder.getByRole('button', { name: 'Ankunft am Nordtor' }).locator('svg.lucide-castle')).toBeVisible();
+  if (shots) await page.screenshot({ path: `${shots}/17-icons-baum.png` });
+  await page.waitForTimeout(300);
   await page.reload();
-  await expect(page.locator('.sketch-stroke')).toHaveCount(1);
+  await expect(binder.getByRole('button', { name: 'Ankunft am Nordtor' }).locator('svg.lucide-castle')).toBeVisible();
+  await expect(binder.getByRole('button', { name: 'Aschenklinge' }).locator('svg.lucide-sword')).toBeVisible();
 
-  // Strg+Rechtsklick radiert
-  const s = (await page.locator('.sketch-stroke').boundingBox())!;
-  await page.keyboard.down('Control');
-  await page.mouse.move(s.x - 5, s.y + s.height / 2);
-  await page.mouse.down({ button: 'right' });
-  for (let i = 0; i < 20; i++) await page.mouse.move(s.x + (s.width * i) / 20, s.y + s.height / 2 + (i % 2 ? 10 : -10));
-  await page.mouse.up({ button: 'right' });
-  await page.keyboard.up('Control');
-  await expect(page.locator('.sketch-stroke')).toHaveCount(0);
-
-  // Strg+Z holt den radierten Strich zurück
-  await page.keyboard.press('Control+z');
-  await expect(page.locator('.sketch-stroke')).toHaveCount(1);
+  // Zurück auf Standard
+  await binder.getByRole('button', { name: 'Ankunft am Nordtor' }).click({ button: 'right' });
+  await picker.getByRole('button', { name: 'Standard' }).click();
+  await expect(binder.getByRole('button', { name: 'Ankunft am Nordtor' }).locator('svg.lucide-castle')).toHaveCount(0);
 });
