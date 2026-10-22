@@ -205,3 +205,43 @@ test('Medien: importieren, Duplikat erkennen, Vorschau, Unterschrift, Papierkorb
   await page.getByRole('tab', { name: /Papierkorb/ }).click();
   await expect(page.getByTestId('media-grid').locator('img')).toHaveCount(1);
 });
+
+test('Bilder im Text und Zuordnung zu Szene und Lore', async ({ page }) => {
+  await page.goto('/');
+  await expect(page.locator('.ProseMirror')).toContainText('Der Wind trug den Geruch');
+  await page.locator('.ProseMirror p').first().click();
+  await page.mouse.move(200, 200);
+
+  // Bild über die Werkzeugleiste in den Text einfügen
+  const esse = await makePng(page, 1600, 900, '#9a5a3a');
+  await page.getByRole('button', { name: /Bild/ }).click();
+  await page.getByTestId('picker-file').setInputFiles({ name: 'esse.png', mimeType: 'image/png', buffer: esse });
+  const figure = page.locator('.ProseMirror figure.scene-figure');
+  await expect(figure).toHaveCount(1);
+  // Der Absatz bleibt ganz, das Bild steht dahinter (nach Überschrift und erstem Absatz).
+  await expect(page.locator('.ProseMirror p').first()).toContainText('vor ihr hob sich die Stadt aus dem Grau');
+  expect(await figure.evaluate((f) => [...f.closest('.ProseMirror')!.children].findIndex((c) => c.contains(f)))).toBe(2);
+  await expect.poll(() => figure.locator('img').evaluate((img: HTMLImageElement) => img.naturalWidth)).toBeGreaterThan(0);
+  if (shots) await page.screenshot({ path: `${shots}/10-bild-im-text.png` });
+
+  // Dasselbe Bild der Szene zuordnen
+  await page.mouse.move(300, 300);
+  await page.getByRole('button', { name: 'Medium zuordnen' }).click();
+  await page.getByRole('dialog', { name: 'Medium wählen' }).getByTitle('esse.png').click();
+  await expect(page.getByTestId('scene-media').locator('img')).toHaveCount(1);
+
+  // Einem Lore-Eintrag zuordnen
+  await page.getByRole('button', { name: 'Aschenklinge', exact: true }).click();
+  await page.getByRole('button', { name: '+ Medium zuordnen' }).click();
+  await page.getByRole('dialog', { name: 'Medium wählen' }).getByTitle('esse.png').click();
+  await expect(page.getByTestId('lore-media').locator('figure')).toHaveCount(1);
+
+  // Medienansicht zeigt, wo das Bild verwendet wird; bleibt nach Neuladen erhalten
+  await page.reload();
+  await page.getByRole('button', { name: 'Medien', exact: true }).click();
+  await page.getByTitle('esse.png').click();
+  const dialog = page.getByRole('dialog');
+  await expect(dialog).toContainText('im Text');
+  await expect(dialog).toContainText('Aschenklinge');
+  if (shots) await page.screenshot({ path: `${shots}/11-verwendet-in.png` });
+});

@@ -6,7 +6,9 @@ import Placeholder from '@tiptap/extension-placeholder';
 import type * as Y from 'yjs';
 import { STATUSES, type Item, type Status } from '../model/types';
 import { createLoreRef, createLoreSuggest, FocusParagraph } from '../editor/extensions';
-import { useItems, useLocalSetting, useNav, useObserved, useProject } from './state';
+import { createMediaImage, insertImages } from '../editor/mediaImage';
+import { useItems, useLocalSetting, useMedia, useNav, useObserved, useProject } from './state';
+import { importImages, MediaPicker, MediaThumb, useMediaUrl } from './mediaHooks';
 import { HoverCard, kindLabel } from './LoreRef';
 import { useImmersion } from './immersion';
 import { Icon } from './icons';
@@ -32,6 +34,28 @@ function LoreRefView({ node }: NodeViewProps) {
 
 const LoreRef = createLoreRef(LoreRefView);
 
+/** Bild im Text: Vorschau in 1280 px, Unterschrift aus der Medienbibliothek. */
+function MediaImageView({ node, selected }: NodeViewProps) {
+  const media = useMedia();
+  const nav = useNav();
+  const meta = media.find((m) => m.hash === node.attrs.hash);
+  const url = useMediaUrl(meta, 'l');
+  return (
+    <NodeViewWrapper as="figure" className={`scene-figure ${selected ? 'selected' : ''}`} data-drag-handle="">
+      <div className="scene-figure-img" style={{ background: meta?.color ?? 'var(--bg-sunken)', aspectRatio: meta?.width ? `${meta.width} / ${meta.height}` : '4 / 3' }}>
+        {url && <img src={url} alt={meta?.caption || meta?.name || ''} draggable={false} />}
+        {!meta && <span className="muted small">Bild fehlt in der Medienbibliothek</span>}
+      </div>
+      {meta && (
+        <figcaption contentEditable={false} onDoubleClick={() => nav.go({ kind: 'media' })} title="Bildunterschrift und Quelle pflegst du unter Medien">
+          {meta.caption || <span className="muted">{meta.name}</span>}
+          {meta.source && <span className="muted"> · {meta.source}</span>}
+        </figcaption>
+      )}
+    </NodeViewWrapper>
+  );
+}
+
 function countWords(text: string): number {
   const m = text.trim().match(/\S+/g);
   return m ? m.length : 0;
@@ -45,6 +69,9 @@ export default function SceneView({ item }: { item: Item }) {
   const [focus, setFocus] = useLocalSetting('focusMode', false);
   const [words, setWords] = useState(0);
   const fragment = useMemo(() => project.sceneFragment(item.id), [project, item.id]);
+  const media = useMedia();
+  const [picker, setPicker] = useState<'text' | 'attach' | null>(null);
+  const mediaImage = useMemo(() => createMediaImage(MediaImageView, (files) => importImages(project, files)), [project]);
   const keyRef = useRef(onWritingKey);
   keyRef.current = onWritingKey;
   const goal = Number(item.fields?.Wortziel ?? 600);
@@ -56,6 +83,7 @@ export default function SceneView({ item }: { item: Item }) {
         Collaboration.configure({ fragment }),
         Placeholder.configure({ placeholder: 'Schreib los. Mit @ verweist du auf Figuren, Orte und Items.' }),
         LoreRef,
+        mediaImage,
         createLoreSuggest(() => project.listItems().filter((i) => i.type === 'lore')),
         FocusParagraph,
       ],
@@ -76,6 +104,10 @@ export default function SceneView({ item }: { item: Item }) {
   const refs = useObserved([fragment as unknown as Y.AbstractType<unknown>], () => [...new Set(project.sceneRefs(item.id))]);
   const refItems = refs.map((id) => items.find((i) => i.id === id)).filter((i): i is Item => !!i);
   const deadRefs = refs.length - refItems.length;
+  const textMedia = useObserved([fragment as unknown as Y.AbstractType<unknown>], () => [...new Set(project.sceneMedia(item.id))]);
+  const sceneMedia = [...new Set([...textMedia, ...(item.mediaIds ?? [])])]
+    .map((h) => media.find((m) => m.hash === h))
+    .filter((m): m is NonNullable<typeof m> => !!m && !m.trashedAt);
 
   const active = (name: string, attrs?: Record<string, unknown>) => (editor?.isActive(name, attrs) ? 'on' : '');
   const blockLabel = editor?.isActive('heading', { level: 1 }) ? 'Titel' : editor?.isActive('heading', { level: 2 }) ? 'Überschrift' : 'Absatz';
@@ -97,6 +129,14 @@ export default function SceneView({ item }: { item: Item }) {
           <button type="button" className={`tool ${active('bulletList')}`} onClick={() => editor?.chain().focus().toggleBulletList().run()}>Liste</button>
           <span className="tool-sep" />
           <button type="button" className="tool on" onClick={() => editor?.chain().focus().insertContent('@').run()} title="Verweis auf einen Lore-Eintrag einfügen">@ Verweis</button>
+          <span style={{ position: 'relative' }}>
+            <button type="button" className="tool" onClick={() => setPicker(picker === 'text' ? null : 'text')} title="Bild einfügen (oder ins Textfeld ziehen bzw. einfügen)">
+              <Icon name="image" size={13} /> Bild
+            </button>
+            {picker === 'text' && (
+              <MediaPicker project={project} imagesOnly onClose={() => setPicker(null)} onPick={(hash) => editor && insertImages(editor, [hash])} />
+            )}
+          </span>
           <span className="spacer" />
           <span className="muted small" style={{ marginRight: 12 }} data-testid="word-count">{words} Wörter</span>
           <button type="button" className={`btn small ${focus ? 'primary' : ''}`} aria-pressed={focus} onClick={() => setFocus(!focus)}>
@@ -140,6 +180,22 @@ export default function SceneView({ item }: { item: Item }) {
             </button>
           ))}
           {deadRefs > 0 && <span className="err-text small">{deadRefs} Verweis{deadRefs > 1 ? 'e' : ''} auf gelöschte Einträge</span>}
+        </div>
+        <div className="field">
+          <span className="label">Medien dieser Szene</span>
+          <div className="side-media" data-testid="scene-media">
+            {sceneMedia.map((m) => (
+              <span key={m.hash} className="side-media-item" title={m.caption || m.name}>
+                <MediaThumb meta={m} />
+                {item.mediaIds?.includes(m.hash) && !textMedia.includes(m.hash) && (
+                  <button type="button" className="side-media-remove" aria-label={`${m.name} lösen`} onClick={() => project.detachMedia(item.id, m.hash)}>×</button>
+                )}
+              </span>
+            ))}
+            <button type="button" className="side-media-add" aria-label="Medium zuordnen" onClick={() => setPicker(picker === 'attach' ? null : 'attach')}>+</button>
+          </div>
+          {/* Im Seitenfeld nicht schwebend: Die Spalte scrollt und würde ein Popover abschneiden. */}
+          {picker === 'attach' && <MediaPicker project={project} onClose={() => setPicker(null)} onPick={(hash) => project.attachMedia(item.id, hash)} />}
         </div>
         <div className="field">
           <div style={{ display: 'flex', justifyContent: 'space-between' }} className="muted small">

@@ -50,6 +50,8 @@ export interface Item {
   /** Strukturierte Felder (LO-02), z. B. { Seltenheit: "Episch" }. */
   fields?: Record<string, string>;
   description?: string;
+  /** Zugeordnete Medien (Hashes), z. B. Porträt einer Figur oder Konzeptbild einer Szene (ME-02). */
+  mediaIds?: string[];
 }
 
 /* ------------------------------------------------------------------ */

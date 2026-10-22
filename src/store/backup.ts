@@ -237,31 +237,38 @@ function applyMarks(text: string, marks: SceneMark[] | undefined): string {
   return lead + core + trail;
 }
 
-function inlineMd(nodes: SceneNode[] | undefined, loreName: (id: string) => string): string {
+/** Wie Verweise im Markdown erscheinen: Lore als Name, Bilder als relativer Pfad ins ZIP. */
+export interface MdNames {
+  lore: (id: string) => string;
+  /** Markdown für ein Bild; fehlt die Funktion, erscheint nur die Unterschrift. */
+  media?: (hash: string) => string;
+}
+
+function inlineMd(nodes: SceneNode[] | undefined, names: MdNames): string {
   return (nodes ?? [])
     .map((n) => {
       if (isText(n)) return applyMarks(n.text, n.marks);
       const node = n as { attrs?: Record<string, unknown> };
-      if (n.type === 'loreRef') return loreName(String(node.attrs?.id ?? ''));
+      if (n.type === 'loreRef') return names.lore(String(node.attrs?.id ?? ''));
       if (n.type === 'hardBreak') return '  \n';
       return '';
     })
     .join('');
 }
 
-function blocksMd(nodes: SceneNode[] | undefined, loreName: (id: string) => string, indent = ''): string[] {
+function blocksMd(nodes: SceneNode[] | undefined, names: MdNames, indent = ''): string[] {
   const out: string[] = [];
   for (const n of nodes ?? []) {
     const node = n as { attrs?: Record<string, unknown>; content?: SceneNode[] };
     switch (n.type) {
       case 'heading':
-        out.push(`${'#'.repeat(Number(node.attrs?.level ?? 1))} ${inlineMd(node.content, loreName)}`);
+        out.push(`${'#'.repeat(Number(node.attrs?.level ?? 1))} ${inlineMd(node.content, names)}`);
         break;
       case 'paragraph':
-        out.push(indent + inlineMd(node.content, loreName));
+        out.push(indent + inlineMd(node.content, names));
         break;
       case 'blockquote':
-        out.push(blocksMd(node.content, loreName).map((l) => (l ? `> ${l}` : '>')).join('\n'));
+        out.push(blocksMd(node.content, names).map((l) => (l ? `> ${l}` : '>')).join('\n'));
         break;
       case 'bulletList':
       case 'orderedList':
@@ -269,29 +276,32 @@ function blocksMd(nodes: SceneNode[] | undefined, loreName: (id: string) => stri
           (node.content ?? [])
             .map((li, k) => {
               const marker = n.type === 'bulletList' ? '- ' : `${k + 1}. `;
-              const inner = blocksMd((li as { content?: SceneNode[] }).content, loreName);
+              const inner = blocksMd((li as { content?: SceneNode[] }).content, names);
               return inner.map((l, j) => (j === 0 ? marker : ' '.repeat(marker.length)) + l).join('\n');
             })
             .join('\n'),
         );
         break;
       case 'codeBlock':
-        out.push('```\n' + inlineMd(node.content, loreName) + '\n```');
+        out.push('```\n' + inlineMd(node.content, names) + '\n```');
+        break;
+      case 'mediaImage':
+        out.push(names.media?.(String(node.attrs?.hash ?? '')) ?? '');
         break;
       case 'horizontalRule':
         out.push('---');
         break;
       default:
-        if (node.content) out.push(...blocksMd(node.content, loreName));
+        if (node.content) out.push(...blocksMd(node.content, names));
     }
   }
   return out;
 }
 
-export function sceneToMarkdown(item: Item, nodes: SceneNode[], loreName: (id: string) => string): string {
+export function sceneToMarkdown(item: Item, nodes: SceneNode[], names: MdNames): string {
   const head = [`# ${item.title || 'Ohne Titel'}`];
   if (item.synopsis) head.push('', `> ${item.synopsis}`);
-  const body = blocksMd(nodes, loreName);
+  const body = blocksMd(nodes, names).filter((b) => b !== '');
   // Die Szene beginnt oft selbst mit ihrem Titel als Überschrift; nicht doppelt ausgeben.
   if (body[0] === `# ${item.title}`) body.shift();
   return [...head, '', body.join('\n\n'), ''].join('\n');
@@ -334,6 +344,7 @@ export function mediaPath(m: MediaMeta): string {
 export function backupFiles(data: BackupData, mediaFiles: Map<string, Uint8Array> = new Map()): Zippable {
   const byId = new Map(data.items.map((i) => [i.id, i]));
   const loreName = (id: string) => byId.get(id)?.title ?? '@?';
+  const mediaByHash = new Map((data.media ?? []).map((m) => [m.hash, m]));
   const files: Zippable = {
     'LIESMICH.txt': strToU8(README),
     'narratio.json': strToU8(JSON.stringify(data, null, 2)),
@@ -362,7 +373,15 @@ export function backupFiles(data: BackupData, mediaFiles: Map<string, Uint8Array
       const dir = folderPath(item);
       const name = `${String(siblingsIndex(item)).padStart(2, '0')} ${safeName(item.title)}.md`;
       const path = unique([...(dir[0] === 'Manuskript' ? dir : ['Manuskript', ...dir]), name].join('/'));
-      files[path] = strToU8(sceneToMarkdown(item, data.scenes[item.id] ?? [], loreName));
+      // Bilder verweisen relativ auf Medien/ im ZIP, auch wenn die Datei in dieser Sicherung fehlt.
+      const up = '../'.repeat(path.split('/').length - 1);
+      const media = (hash: string) => {
+        const m = mediaByHash.get(hash);
+        if (!m) return '';
+        const alt = (m.caption || m.name).replace(/[\[\]]/g, '');
+        return `![${alt}](${encodeURI(up + mediaPath(m))})`;
+      };
+      files[path] = strToU8(sceneToMarkdown(item, data.scenes[item.id] ?? [], { lore: loreName, media }));
     } else if (item.type === 'lore') {
       const kind = LORE_KINDS.find((k) => k.kind === item.loreKind)?.plural ?? 'Sonstige';
       files[unique(`Lore/${kind}/${safeName(item.title)}.md`)] = strToU8(loreToMarkdown(item));

@@ -1,49 +1,14 @@
 import { useCallback, useEffect, useMemo, useRef, useState, type ClipboardEvent, type DragEvent } from 'react';
+import { useMediaUrl, useVisible } from './mediaHooks';
 import type { MediaMeta } from '../model/types';
-import { useMedia, useProject } from './state';
+import { useItems, useMedia, useNav, useProject } from './state';
 import { Icon } from './icons';
 import { imageFor, importFile, purgeMedia, restoreMedia, trashMedia } from '../store/media';
-import type { ThumbSize } from '../store/blobs';
 import { formatBytes } from '../store/storage';
 import { workerThumbnailer } from '../media/thumbnailer';
 import { download } from './BackupPanel';
 
 type Tab = 'all' | 'image' | 'pdf' | 'trash';
-
-/** Lädt ein Bild aus dem Blob-Speicher als Objekt-URL, erst wenn es sichtbar wird. */
-function useMediaUrl(meta: MediaMeta | undefined, size: ThumbSize | 'original', visible = true): string | undefined {
-  const [url, setUrl] = useState<string>();
-  useEffect(() => {
-    if (!meta || !visible) return;
-    let alive = true;
-    let created: string | undefined;
-    void imageFor(meta, size, workerThumbnailer).then((blob) => {
-      if (!alive || !blob) return;
-      created = URL.createObjectURL(blob);
-      setUrl(created);
-    });
-    return () => {
-      alive = false;
-      if (created) URL.revokeObjectURL(created);
-      setUrl(undefined);
-    };
-  }, [meta?.hash, size, visible]); // eslint-disable-line react-hooks/exhaustive-deps
-  return url;
-}
-
-function useVisible<T extends Element>(): [React.RefObject<T | null>, boolean] {
-  const ref = useRef<T>(null);
-  const [visible, setVisible] = useState(false);
-  useEffect(() => {
-    const el = ref.current;
-    if (!el || visible) return;
-    if (typeof IntersectionObserver === 'undefined') return setVisible(true);
-    const io = new IntersectionObserver((entries) => entries.some((e) => e.isIntersecting) && setVisible(true), { rootMargin: '300px' });
-    io.observe(el);
-    return () => io.disconnect();
-  }, [visible]);
-  return [ref, visible];
-}
 
 function Tile({ meta, onOpen }: { meta: MediaMeta; onOpen: () => void }) {
   const [ref, visible] = useVisible<HTMLButtonElement>();
@@ -64,6 +29,10 @@ function Viewer({ meta, onClose, onPrev, onNext }: { meta: MediaMeta; onClose: (
   const preview = useMediaUrl(meta, 'l');
   const original = useMediaUrl(meta, 'original', zoom);
   const [confirmPurge, setConfirmPurge] = useState(false);
+  const items = useItems();
+  const nav = useNav();
+  // Abhängig von items, damit neue Zuordnungen sofort erscheinen; Szenentexte werden beim Öffnen gelesen.
+  const uses = useMemo(() => project.mediaUses(meta.hash), [project, meta.hash, items]); // eslint-disable-line react-hooks/exhaustive-deps
 
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
@@ -118,6 +87,16 @@ function Viewer({ meta, onClose, onPrev, onNext }: { meta: MediaMeta; onClose: (
           <span className="label">Quelle</span>
           <input className="input" value={meta.source ?? ''} placeholder="Urheber, Link, Fundort" onChange={(e) => project.updateMedia(meta.hash, { source: e.target.value || undefined })} />
         </label>
+        <div className="field">
+          <span className="label">Verwendet in</span>
+          {uses.length === 0 && <span className="muted small">Noch nirgends.</span>}
+          {uses.map((u) => (
+            <button key={u.itemId} type="button" className="ref-row" onClick={() => { onClose(); nav.go({ kind: 'item', id: u.itemId }); }}>
+              <span style={{ flex: 1 }}>{items.find((i) => i.id === u.itemId)?.title || 'Ohne Titel'}</span>
+              <span className="muted small">{u.inText ? 'im Text' : 'zugeordnet'}</span>
+            </button>
+          ))}
+        </div>
         <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
           <button type="button" className="btn small" onClick={() => void saveOriginal()}>Original speichern</button>
           {!meta.trashedAt ? (
@@ -128,7 +107,9 @@ function Viewer({ meta, onClose, onPrev, onNext }: { meta: MediaMeta; onClose: (
               {!confirmPurge ? (
                 <button type="button" className="btn small" onClick={() => setConfirmPurge(true)}>Endgültig löschen …</button>
               ) : (
-                <button type="button" className="btn small danger" onClick={() => void purgeMedia(project, meta.hash).then(onClose)}>Wirklich löschen</button>
+                <button type="button" className="btn small danger" onClick={() => void purgeMedia(project, meta.hash).then(onClose)}>
+                  {uses.length ? `Wird an ${uses.length} Stellen verwendet. Trotzdem löschen` : 'Wirklich löschen'}
+                </button>
               )}
             </>
           )}

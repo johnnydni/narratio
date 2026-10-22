@@ -154,6 +154,17 @@ export class Project {
     return ids;
   }
 
+  /** Hashes der Bilder im Szenentext, in Reihenfolge. */
+  sceneMedia(id: Id): string[] {
+    const frag = this.sceneFragment(id);
+    const out: string[] = [];
+    for (const node of frag.createTreeWalker((n) => n instanceof Y.XmlElement && n.nodeName === 'mediaImage')) {
+      const hash = (node as Y.XmlElement).getAttribute('hash');
+      if (typeof hash === 'string') out.push(hash);
+    }
+    return out;
+  }
+
   sceneText(id: Id): string {
     const frag = this.sceneFragment(id);
     const parts: string[] = [];
@@ -285,6 +296,26 @@ export class Project {
     const next = { ...cur, ...patch };
     for (const [k, v] of Object.entries(patch)) if (v === undefined) delete (next as Record<string, unknown>)[k];
     this.media.set(hash, next);
+  }
+
+  /** Wo ein Medium verwendet wird: im Szenentext oder zugeordnet an einen Eintrag. */
+  mediaUses(hash: string): { itemId: Id; inText: boolean }[] {
+    const out: { itemId: Id; inText: boolean }[] = [];
+    for (const item of this.listItems()) {
+      const inText = item.type === 'scene' && this.sceneMedia(item.id).includes(hash);
+      if (inText || item.mediaIds?.includes(hash)) out.push({ itemId: item.id, inText });
+    }
+    return out;
+  }
+
+  attachMedia(itemId: Id, hash: string): void {
+    const ids = this.getItem(itemId)?.mediaIds ?? [];
+    if (!ids.includes(hash)) this.updateItem(itemId, { mediaIds: [...ids, hash] });
+  }
+
+  detachMedia(itemId: Id, hash: string): void {
+    const ids = (this.getItem(itemId)?.mediaIds ?? []).filter((h) => h !== hash);
+    this.updateItem(itemId, { mediaIds: ids.length ? ids : undefined });
   }
 
   /** Endgültig aus dem Projekt entfernen. Die Datei im Blob-Speicher räumt der Aufrufer weg. */
