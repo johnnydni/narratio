@@ -354,3 +354,37 @@ test('Seitenleisten lassen sich ein- und ausklappen', async ({ page }) => {
   await page.keyboard.press('ControlOrMeta+Alt+KeyB');
   await expect(page.locator('.app')).not.toHaveClass(/left-hidden/);
 });
+
+test('Icon-Bibliothek: Icon und Farbe für Einträge wählen', async ({ page }) => {
+  await page.goto('/#/p/default');
+  await expect(page.locator('.ProseMirror')).toContainText('Der Wind');
+  const binder = page.locator('.binder');
+  const picker = page.getByRole('dialog', { name: 'Icon wählen' });
+
+  // Lore-Eintrag: Knopf neben der Art öffnet die Bibliothek, Suche auf Deutsch, Enter nimmt den ersten Treffer
+  await binder.getByRole('button', { name: 'Aschenklinge' }).click();
+  await page.locator('.lore').getByRole('button', { name: 'Icon wählen' }).click();
+  await expect(picker).toBeVisible();
+  await picker.getByLabel('Icon suchen').fill('schwert');
+  if (shots) await page.screenshot({ path: `${shots}/16-icon-suche.png` });
+  await page.keyboard.press('Enter');
+  await expect(picker).toHaveCount(0);
+  await expect(binder.getByRole('button', { name: 'Aschenklinge' }).locator('svg.lucide-sword')).toBeVisible();
+
+  // Rechtsklick im Projektbaum, Farbe wählen, bleibt nach dem Neuladen
+  await binder.getByRole('button', { name: 'Ankunft am Nordtor' }).click({ button: 'right' });
+  await expect(picker).toBeVisible();
+  await picker.getByRole('radio', { name: 'Rot' }).click();
+  await picker.locator('[data-icon="Castle"]').click();
+  await expect(binder.getByRole('button', { name: 'Ankunft am Nordtor' }).locator('svg.lucide-castle')).toBeVisible();
+  if (shots) await page.screenshot({ path: `${shots}/17-icons-baum.png` });
+  await page.waitForTimeout(300);
+  await page.reload();
+  await expect(binder.getByRole('button', { name: 'Ankunft am Nordtor' }).locator('svg.lucide-castle')).toBeVisible();
+  await expect(binder.getByRole('button', { name: 'Aschenklinge' }).locator('svg.lucide-sword')).toBeVisible();
+
+  // Zurück auf Standard
+  await binder.getByRole('button', { name: 'Ankunft am Nordtor' }).click({ button: 'right' });
+  await picker.getByRole('button', { name: 'Standard' }).click();
+  await expect(binder.getByRole('button', { name: 'Ankunft am Nordtor' }).locator('svg.lucide-castle')).toHaveCount(0);
+});

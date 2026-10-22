@@ -3,6 +3,7 @@ import { LORE_KINDS, type Id, type Item } from '../model/types';
 import { useItems, useNav } from './state';
 import { Icon } from './icons';
 import { TYPE_ICON } from './Binder';
+import { ItemIcon } from './itemIcons';
 import { usePresence } from './motion';
 
 /** Ein Eintrag der Schnellsuche: Sprungziel oder Befehl. */
@@ -11,6 +12,8 @@ export interface Command {
   title: string;
   hint?: string;
   icon: string;
+  /** Bei Einträgen: deren gewähltes Icon statt des allgemeinen. */
+  item?: Item;
   group: string;
   keywords?: string;
   run: () => void;
@@ -87,6 +90,7 @@ function PaletteBody({ onClose, commands, recent, state }: { onClose: () => void
       title: i.title || 'Ohne Titel',
       hint: i.type === 'lore' ? LORE_KINDS.find((k) => k.kind === (i.loreKind ?? 'term'))?.label : pathOf(byId, i) || undefined,
       icon: TYPE_ICON[i.type],
+      item: i,
       group: 'Springen zu',
       run: () => nav.go({ kind: 'item', id: i.id }),
     }));
@@ -148,7 +152,7 @@ function PaletteBody({ onClose, commands, recent, state }: { onClose: () => void
                   onMouseMove={() => sel !== i && setSel(i)}
                   onClick={() => run(c)}
                 >
-                  <span className="pi-icon"><Icon name={c.icon} size={14} /></span>
+                  <span className="pi-icon">{c.item ? <ItemIcon item={c.item} size={14} /> : <Icon name={c.icon} size={14} />}</span>
                   <span className="pi-title">{highlight(c.title, query.trim())}</span>
                   {c.hint && <span className="pi-hint">{c.hint}</span>}
                 </button>

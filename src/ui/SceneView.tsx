@@ -12,6 +12,7 @@ import { importImages, MediaPicker, MediaThumb, useMediaUrl } from './mediaHooks
 import { HoverCard, kindLabel } from './LoreRef';
 import { useImmersion } from './immersion';
 import { Icon } from './icons';
+import { IconButton, ItemIcon } from './itemIcons';
 
 /** Darstellung eines Lore-Verweises im Editor: immer der aktuelle Name, mit Vorschaukarte. */
 function LoreRefView({ node }: NodeViewProps) {
@@ -145,7 +146,7 @@ export default function SceneView({ item }: { item: Item }) {
         </div>
         <div className={`editor-scroll ${focus ? 'focus-mode' : ''}`}>
           <div className="page">
-            <div className="kicker">{item.title}</div>
+            <div className="kicker"><IconButton item={item} onChange={(patch) => project.updateItem(item.id, patch)} size={14} small />{item.title}</div>
             <EditorContent editor={editor} />
           </div>
         </div>
@@ -174,7 +175,7 @@ export default function SceneView({ item }: { item: Item }) {
           {refItems.length === 0 && <span className="muted small">Noch keine. Tippe @ im Text.</span>}
           {refItems.map((r) => (
             <button key={r.id} type="button" className="ref-row" onClick={() => nav.go({ kind: 'item', id: r.id })}>
-              <span className={`kind-dot k-${r.loreKind}`} />
+              <ItemIcon item={r} size={14} />
               <span style={{ flex: 1 }}>{r.title || 'Ohne Titel'}</span>
               <span className="muted small">{kindLabel(r)}</span>
             </button>
