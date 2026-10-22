@@ -23,6 +23,9 @@ const PATHS: Record<string, string> = {
   warn: 'M8 2.5 14.5 13.5h-13zM8 6.5v3.5M8 11.8v.2',
   chevronRight: 'M6 3.5 10.5 8 6 12.5',
   chevronDown: 'M3.5 6 8 10.5 12.5 6',
+  settings: 'M2.5 4.5h5.5M11 4.5h2.5M2.5 11.5h2M7.5 11.5h6M9.5 3v3M6 10v3',
+  close: 'M4 4l8 8M12 4l-8 8',
+  command: 'M2.5 4h11v8h-11zM5 6.5h.01M8 6.5h.01M11 6.5h.01M5.5 9.5h5',
 };
 
 export function Icon({ name, size = 16 }: { name: keyof typeof PATHS | string; size?: number }) {

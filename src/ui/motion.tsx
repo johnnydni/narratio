@@ -1,4 +1,5 @@
 import { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
+import { prefersReducedMotion } from './prefs';
 
 /**
  * Hält ein Element nach dem Schließen noch kurz im DOM, damit es ausblenden kann.
@@ -11,7 +12,7 @@ export function usePresence(open: boolean, ms = 160): { mounted: boolean; state:
       setMounted(true);
       return;
     }
-    const reduce = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+    const reduce = prefersReducedMotion();
     const t = setTimeout(() => setMounted(false), reduce ? 0 : ms);
     return () => clearTimeout(t);
   }, [open, ms]);

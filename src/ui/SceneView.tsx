@@ -1,4 +1,4 @@
-import { useMemo, useRef, useState, type MouseEvent } from 'react';
+import { useEffect, useMemo, useRef, useState, type MouseEvent } from 'react';
 import { EditorContent, NodeViewWrapper, useEditor, type NodeViewProps } from '@tiptap/react';
 import StarterKit from '@tiptap/starter-kit';
 import Collaboration from '@tiptap/extension-collaboration';
@@ -11,6 +11,8 @@ import { useItems, useLocalSetting, useMedia, useNav, useObserved, useProject } 
 import { importImages, MediaPicker, MediaThumb, useMediaUrl } from './mediaHooks';
 import { HoverCard, kindLabel } from './LoreRef';
 import { useImmersion } from './immersion';
+import { useWritingPrefs } from './prefs';
+import SketchLayer, { SKETCH_DEFAULTS, SketchTools, type SketchSettings } from './SketchLayer';
 import { Icon } from './icons';
 import { IconButton, ItemIcon } from './itemIcons';
 
@@ -77,7 +79,8 @@ export default function SceneView({ item }: { item: Item }) {
   const mediaImage = useMemo(() => createMediaImage(MediaImageView, (files) => importImages(project, files)), [project]);
   const keyRef = useRef(onWritingKey);
   keyRef.current = onWritingKey;
-  const goal = Number(item.fields?.Wortziel ?? 600);
+  const [writing] = useWritingPrefs();
+  const goal = Number(item.fields?.Wortziel ?? writing.wordGoal);
 
   const editor = useEditor(
     {
@@ -91,7 +94,7 @@ export default function SceneView({ item }: { item: Item }) {
         FocusParagraph,
       ],
       editorProps: {
-        attributes: { 'aria-label': `Szenentext: ${item.title}`, spellcheck: 'true', lang: 'de' },
+        attributes: { 'aria-label': `Szenentext: ${item.title}`, spellcheck: String(writing.spellcheck), lang: 'de' },
         handleKeyDown: (_view, event) => {
           keyRef.current(event);
           return false;
@@ -102,6 +105,11 @@ export default function SceneView({ item }: { item: Item }) {
     },
     [fragment],
   );
+
+  // Rechtschreibprüfung umschalten, ohne den Editor neu aufzubauen
+  useEffect(() => {
+    if (editor && !editor.isDestroyed) editor.view.dom.setAttribute('spellcheck', String(writing.spellcheck));
+  }, [editor, writing.spellcheck]);
 
   // Verweise dieser Szene, live aus dem Text
   const refs = useObserved([fragment as unknown as Y.AbstractType<unknown>], () => [...new Set(project.sceneRefs(item.id))]);

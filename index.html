@@ -16,6 +16,9 @@
       try {
         var t = JSON.parse(localStorage.getItem('narratio:theme') || '"system"');
         if (t === 'light' || t === 'dark') document.documentElement.setAttribute('data-theme', t);
+        var a = JSON.parse(localStorage.getItem('narratio:appearance') || '{}');
+        if (a && a.splash === 'off') document.documentElement.classList.add('no-splash');
+        if (a && a.motion === 'reduce') document.documentElement.setAttribute('data-motion', 'reduce');
       } catch (e) {}
     </script>
     <style>
@@ -36,10 +39,13 @@
       #splash .sp-rule { width: 160px; height: 1px; background: var(--sp-line); position: relative; overflow: hidden; }
       #splash .sp-rule::after { content: ''; position: absolute; inset: 0; background: var(--sp-accent); transform: scaleX(0); transform-origin: left; animation: sp-draw 0.9s 0.45s cubic-bezier(0.6, 0, 0.2, 1) forwards; }
       #splash .sp-tag { font-family: system-ui, -apple-system, 'Segoe UI', sans-serif; font-size: 12px; letter-spacing: 0.14em; text-transform: uppercase; color: var(--sp-muted); opacity: 0; animation: sp-fade 0.5s 0.6s ease forwards; }
+      .no-splash #splash { display: none; }
       #splash.out { opacity: 0; transform: scale(1.015); pointer-events: none; }
       @keyframes sp-in { to { opacity: 1; transform: none; filter: none; } }
       @keyframes sp-draw { to { transform: scaleX(1); } }
       @keyframes sp-fade { to { opacity: 1; } }
+      :root[data-motion='reduce'] #splash .sp-mark span, :root[data-motion='reduce'] #splash .sp-tag { animation: none; opacity: 1; transform: none; filter: none; }
+      :root[data-motion='reduce'] #splash .sp-rule::after { animation: none; transform: none; }
       @media (prefers-reduced-motion: reduce) {
         #splash .sp-mark span, #splash .sp-tag { animation: none; opacity: 1; transform: none; filter: none; }
         #splash .sp-rule::after { animation: none; transform: none; }

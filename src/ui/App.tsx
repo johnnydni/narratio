@@ -1,4 +1,4 @@
-import { lazy, Suspense, useEffect, useMemo, useRef, useState } from 'react';
+import { lazy, Suspense, useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { NavProvider, useItem, useItems, useLocalSetting, useNav, usePeerCount, useProject, useProjectSetting, useSession, type View } from './state';
 import { formatBytes } from '../store/storage';
 import { Binder } from './Binder';
@@ -16,6 +16,7 @@ import { getOriginal } from '../store/blobs';
 import { download } from './BackupPanel';
 import { recordProject } from '../store/library';
 import { useTheme, type Theme } from './theme';
+import { SettingsDialog } from './SettingsDialog';
 
 // Editor und Graph sind die größten Pakete; sie laden erst, wenn sie gebraucht werden.
 const SceneView = lazy(() => import('./SceneView'));
@@ -42,7 +43,7 @@ export interface Layout {
 
 const mod = isMac ? '⌘' : 'Strg';
 
-function Topbar({ view, onSearch, theme, layout, setLayout }: { view: View; onSearch: () => void; theme: Theme; layout: Layout; setLayout: (l: Layout) => void }) {
+function Topbar({ view, onSearch, onSettings, theme, layout, setLayout }: { view: View; onSearch: () => void; onSettings: () => void; theme: Theme; layout: Layout; setLayout: (l: Layout) => void }) {
   const project = useProject();
   const items = useItems();
   const peers = usePeerCount();
@@ -81,6 +82,9 @@ function Topbar({ view, onSearch, theme, layout, setLayout }: { view: View; onSe
       <AmbientPicker />
       <button type="button" className="icon-btn" aria-label={isDark ? 'Helles Design' : 'Dunkles Design'} onClick={toggle}>
         <Icon name={isDark ? 'sun' : 'moon'} />
+      </button>
+      <button type="button" className="icon-btn" aria-label="Einstellungen" title={`Einstellungen (${mod}+,)`} onClick={onSettings}>
+        <Icon name="settings" />
       </button>
       <button type="button" className="icon-btn" aria-label="Rechte Leiste" aria-pressed={layout.right} title={`Rechte Leiste ein- oder ausblenden (${mod}+Alt+I)`} onClick={() => setLayout({ ...layout, right: !layout.right })}>
         <Icon name="sidebarRight" />
@@ -133,8 +137,10 @@ function Shell({ view }: { view: View }) {
   const theme = useTheme();
   const { toggle } = theme;
   const [paletteOpen, setPaletteOpen] = useState(false);
+  const [settingsOpen, setSettingsOpen] = useState(false);
   const [recent, setRecent] = useProjectSetting<Id[]>('recent', []);
   const [layout, setLayout] = useLocalSetting<Layout>('layout', { left: true, right: true });
+  const closeSettings = useCallback(() => setSettingsOpen(false), []);
   const layoutRef = useRef(layout);
   layoutRef.current = layout;
 
@@ -158,6 +164,11 @@ function Shell({ view }: { view: View }) {
       if ((e.metaKey || e.ctrlKey) && !e.shiftKey && !e.altKey && e.key.toLowerCase() === 'k') {
         e.preventDefault();
         setPaletteOpen((o) => !o);
+      }
+      if ((e.metaKey || e.ctrlKey) && !e.shiftKey && !e.altKey && e.key === ',') {
+        e.preventDefault();
+        setPaletteOpen(false);
+        setSettingsOpen((o) => !o);
       }
       // Alt verändert e.key je nach Tastatur; deshalb die Taste selbst prüfen.
       if ((e.metaKey || e.ctrlKey) && e.altKey && (e.code === 'KeyB' || e.code === 'KeyI')) {
@@ -189,6 +200,7 @@ function Shell({ view }: { view: View }) {
         }),
       },
       { id: 'theme', title: 'Helles oder dunkles Design', icon: 'moon', group: 'Befehle', keywords: 'dunkel hell theme farbe', run: toggle },
+      { id: 'settings', title: 'Einstellungen', hint: `${mod}+,`, icon: 'settings', group: 'Befehle', keywords: 'optionen schrift textgröße klang sicherung tastenkürzel', run: () => setSettingsOpen(true) },
       { id: 'left', title: 'Linke Leiste ein- oder ausblenden', hint: `${mod}+Alt+B`, icon: 'sidebar', group: 'Befehle', keywords: 'binder seitenleiste einklappen', run: () => setLayout({ ...layoutRef.current, left: !layoutRef.current.left }) },
       { id: 'right', title: 'Rechte Leiste ein- oder ausblenden', hint: `${mod}+Alt+I`, icon: 'sidebarRight', group: 'Befehle', keywords: 'inspector details seitenleiste einklappen', run: () => setLayout({ ...layoutRef.current, right: !layoutRef.current.right }) },
       { id: 'library', title: 'Zur Bibliothek', icon: 'library', group: 'Befehle', keywords: 'projekte wechseln start', run: () => { location.hash = '#/'; } },
@@ -197,7 +209,7 @@ function Shell({ view }: { view: View }) {
 
   return (
     <div className={`app ${layout.left ? '' : 'left-hidden'} ${layout.right ? '' : 'right-hidden'}`}>
-      <Topbar view={view} theme={theme} layout={layout} setLayout={setLayout} onSearch={() => setPaletteOpen(true)} />
+      <Topbar view={view} theme={theme} layout={layout} setLayout={setLayout} onSearch={() => setPaletteOpen(true)} onSettings={() => setSettingsOpen(true)} />
       <SchemaBanner />
       <div className="body">
         <Binder />
@@ -206,6 +218,7 @@ function Shell({ view }: { view: View }) {
         </main>
       </div>
       <Palette open={paletteOpen} onClose={() => setPaletteOpen(false)} commands={commands} recent={recent} />
+      <SettingsDialog open={settingsOpen} onClose={closeSettings} inProject />
     </div>
   );
 }

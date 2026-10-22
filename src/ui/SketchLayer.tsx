@@ -483,8 +483,6 @@ export function SketchTools({ settings, onChange }: { settings: SketchSettings; 
     };
   }, [open]);
 
-  const set = (patch: Partial<SketchSettings>) => onChange({ ...settings, ...patch });
-
   return (
     <>
       <button
@@ -500,23 +498,7 @@ export function SketchTools({ settings, onChange }: { settings: SketchSettings; 
       </button>
       {open && pos && createPortal(
         <div ref={box} className="picker sketch-pop" role="dialog" aria-label="Bleistift" style={{ position: 'fixed', top: pos.top, left: pos.left }}>
-          <div className="sketch-row" role="radiogroup" aria-label="Farbe">
-            {SKETCH_COLORS.map((c) => (
-              <button key={c} type="button" role="radio" aria-checked={settings.color === c} className={`sketch-swatch ${settings.color === c ? 'on' : ''}`} title={SKETCH_COLOR_LABEL[c]} aria-label={SKETCH_COLOR_LABEL[c]} onClick={() => set({ color: c })}>
-                <span style={{ background: `var(--sketch-${c})` }} />
-              </button>
-            ))}
-          </div>
-          <div className="sketch-row" role="radiogroup" aria-label="Stärke">
-            {WIDTHS.map(({ w, label }) => (
-              <button key={w} type="button" role="radio" aria-checked={settings.width === w} className={`sketch-width ${settings.width === w ? 'on' : ''}`} title={label} aria-label={label} onClick={() => set({ width: w })}>
-                <span style={{ width: Math.max(3, w), height: Math.max(3, w), background: `var(--sketch-${settings.color})` }} />
-              </button>
-            ))}
-          </div>
-          <label className="sketch-check">
-            <input type="checkbox" checked={settings.visible} onChange={(e) => set({ visible: e.target.checked })} /> Zeichnungen zeigen
-          </label>
+          <SketchOptions settings={settings} onChange={onChange} />
           <div className="sketch-help muted small">
             <div><kbd>Strg</kbd> + Ziehen: zeichnen</div>
             <div><kbd>Strg</kbd> + Rechtsklick oder <kbd>Umschalt</kbd>: radieren</div>
@@ -526,6 +508,32 @@ export function SketchTools({ settings, onChange }: { settings: SketchSettings; 
         </div>,
         document.body,
       )}
+    </>
+  );
+}
+
+/** Farbe, Stärke und Sichtbarkeit; im Stift-Popover und im Einstellungsmenü. */
+export function SketchOptions({ settings, onChange }: { settings: SketchSettings; onChange: (s: SketchSettings) => void }) {
+  const set = (patch: Partial<SketchSettings>) => onChange({ ...settings, ...patch });
+  return (
+    <>
+      <div className="sketch-row" role="radiogroup" aria-label="Farbe">
+        {SKETCH_COLORS.map((c) => (
+          <button key={c} type="button" role="radio" aria-checked={settings.color === c} className={`sketch-swatch ${settings.color === c ? 'on' : ''}`} title={SKETCH_COLOR_LABEL[c]} aria-label={SKETCH_COLOR_LABEL[c]} onClick={() => set({ color: c })}>
+            <span style={{ background: `var(--sketch-${c})` }} />
+          </button>
+        ))}
+      </div>
+      <div className="sketch-row" role="radiogroup" aria-label="Stärke">
+        {WIDTHS.map(({ w, label }) => (
+          <button key={w} type="button" role="radio" aria-checked={settings.width === w} className={`sketch-width ${settings.width === w ? 'on' : ''}`} title={label} aria-label={label} onClick={() => set({ width: w })}>
+            <span style={{ width: Math.max(3, w), height: Math.max(3, w), background: `var(--sketch-${settings.color})` }} />
+          </button>
+        ))}
+      </div>
+      <label className="sketch-check">
+        <input type="checkbox" checked={settings.visible} onChange={(e) => set({ visible: e.target.checked })} /> Zeichnungen zeigen
+      </label>
     </>
   );
 }
