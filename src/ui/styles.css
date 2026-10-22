@@ -35,6 +35,10 @@
   --dur-slow: 320ms;
   --shadow-pop: 0 12px 36px rgba(26, 26, 28, 0.14), 0 2px 6px rgba(26, 26, 28, 0.06);
   --scrim: rgba(20, 20, 22, 0.18);
+  --sketch-graphite: #2a2a2d;
+  --sketch-red: #b8322c;
+  --sketch-blue: #2c58a8;
+  --sketch-green: #2f7a4a;
   color-scheme: light;
 }
 
@@ -64,6 +68,10 @@
     --shadow: 0 6px 24px rgba(0, 0, 0, 0.4);
     --shadow-pop: 0 16px 44px rgba(0, 0, 0, 0.55), 0 2px 8px rgba(0, 0, 0, 0.35);
     --scrim: rgba(0, 0, 0, 0.45);
+    --sketch-graphite: #d9d9d4;
+    --sketch-red: #f08a7c;
+    --sketch-blue: #93b3f0;
+    --sketch-green: #8fd2a6;
     color-scheme: dark;
   }
 }
@@ -93,6 +101,10 @@
   --shadow: 0 6px 24px rgba(0, 0, 0, 0.4);
   --shadow-pop: 0 16px 44px rgba(0, 0, 0, 0.55), 0 2px 8px rgba(0, 0, 0, 0.35);
   --scrim: rgba(0, 0, 0, 0.45);
+  --sketch-graphite: #d9d9d4;
+  --sketch-red: #f08a7c;
+  --sketch-blue: #93b3f0;
+  --sketch-green: #8fd2a6;
   color-scheme: dark;
 }
 
@@ -224,7 +236,7 @@ button { cursor: pointer; }
 .tool.on { background: var(--accent-soft); color: var(--accent); }
 .tool-sep { width: 1px; height: 18px; background: var(--line); margin: 0 6px; }
 .editor-scroll { flex: 1; overflow-y: auto; }
-.page { max-width: 680px; margin: 0 auto; padding: 64px 24px 40vh; }
+.page { position: relative; max-width: 680px; margin: 0 auto; padding: 64px 24px 40vh; }
 .page .kicker { font-size: 11px; letter-spacing: 0.08em; text-transform: uppercase; color: var(--muted); margin-bottom: 8px; }
 
 .ProseMirror { outline: none; font-family: var(--serif); font-size: 18px; line-height: 1.75; color: var(--text-body); caret-color: var(--accent); }
@@ -237,6 +249,33 @@ button { cursor: pointer; }
   content: attr(data-placeholder); color: var(--muted); float: left; height: 0; pointer-events: none;
 }
 .ProseMirror .ref { font-size: 0.97em; }
+
+/* Scribble: Bleistift über dem Text. Strg zeichnet, Strg+Alt greift. */
+.sketch-layer { position: absolute; inset: 0; z-index: 2; pointer-events: none; }
+.sketch-layer[data-mode='draw'] {
+  pointer-events: auto; touch-action: none;
+  cursor: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='24' height='24' viewBox='0 0 24 24'%3E%3Cpath d='M3 21l1.6-5.2L16.4 4a2 2 0 0 1 2.8 0l.8.8a2 2 0 0 1 0 2.8L8.2 19.4z' fill='%23f3d27a' stroke='%23222' stroke-width='1.2' stroke-linejoin='round'/%3E%3Cpath d='M3 21l1.6-5.2 3.6 3.6z' fill='%23e9d3b0' stroke='%23222' stroke-width='1.2' stroke-linejoin='round'/%3E%3Cpath d='M3 21l.7-2.3 1.6 1.6z' fill='%23222'/%3E%3C/svg%3E") 3 21, crosshair;
+}
+.sketch-layer[data-mode='pick'] { pointer-events: auto; touch-action: none; cursor: default; }
+.sketch-layer[data-mode='pick'].has-hover { cursor: grab; }
+.sketch-layer[data-mode='pick'].has-hover:active { cursor: grabbing; }
+.sketch-stroke { position: absolute; left: 0; top: 0; pointer-events: none; transition: opacity var(--dur-fast) ease, filter var(--dur-fast) ease; }
+.sketch-layer[data-mode='pick'] .sketch-stroke.hover { filter: drop-shadow(0 0 3px var(--accent)); }
+.sketch-stroke.moving { opacity: 0.8; transition: none; }
+.sketch-stroke.doomed { opacity: 0.18; }
+.sketch-dot { display: inline-block; width: 10px; height: 10px; border-radius: 50%; vertical-align: -1px; margin-right: 2px; }
+.sketch-pop { width: 260px; display: flex; flex-direction: column; gap: 12px; }
+.sketch-row { display: flex; gap: 6px; }
+.sketch-swatch, .sketch-width {
+  width: 34px; height: 30px; border: 0; border-radius: 6px; background: transparent; display: grid; place-items: center;
+}
+.sketch-swatch:hover, .sketch-width:hover { background: var(--bg-sunken); }
+.sketch-swatch.on, .sketch-width.on { background: var(--accent-soft); box-shadow: inset 0 0 0 1px var(--accent); }
+.sketch-swatch span { width: 16px; height: 16px; border-radius: 50%; }
+.sketch-width span { border-radius: 50%; }
+.sketch-check { display: flex; align-items: center; gap: 8px; font-size: 13px; }
+.sketch-help { display: flex; flex-direction: column; gap: 3px; line-height: 1.5; }
+.sketch-help kbd { font-family: var(--sans); font-size: 11px; padding: 0 4px; border: 1px solid var(--line); border-radius: 4px; background: var(--bg); }
 
 /* Fokus: aktueller Absatz hell, alles andere zurückgenommen */
 .focus-mode .ProseMirror > * { opacity: 0.32; transition: opacity 0.4s ease; }

@@ -68,6 +68,7 @@ export default function SceneView({ item }: { item: Item }) {
   const nav = useNav();
   const { onWritingKey } = useImmersion();
   const [focus, setFocus] = useLocalSetting('focusMode', false);
+  const [sketch, setSketch] = useLocalSetting<SketchSettings>('sketch', SKETCH_DEFAULTS);
   const [words, setWords] = useState(0);
   const fragment = useMemo(() => project.sceneFragment(item.id), [project, item.id]);
   const media = useMedia();
@@ -138,6 +139,8 @@ export default function SceneView({ item }: { item: Item }) {
           {picker === 'text' && (
             <MediaPicker project={project} imagesOnly anchor={imageBtn.current} onClose={() => setPicker(null)} onPick={(hash) => editor && insertImages(editor, [hash])} />
           )}
+          <span className="tool-sep" />
+          <SketchTools settings={sketch} onChange={setSketch} />
           <span className="spacer" />
           <span className="muted small" style={{ marginRight: 12 }} data-testid="word-count">{words} Wörter</span>
           <button type="button" className={`btn small ${focus ? 'primary' : ''}`} aria-pressed={focus} onClick={() => setFocus(!focus)}>
@@ -148,6 +151,7 @@ export default function SceneView({ item }: { item: Item }) {
           <div className="page">
             <div className="kicker"><IconButton item={item} onChange={(patch) => project.updateItem(item.id, patch)} size={14} small />{item.title}</div>
             <EditorContent editor={editor} />
+            <SketchLayer editor={editor} project={project} sceneId={item.id} settings={sketch} />
           </div>
         </div>
       </div>
