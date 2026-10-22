@@ -2,7 +2,8 @@ import { useMemo, useState } from 'react';
 import type * as Y from 'yjs';
 import { LORE_KINDS, type Item, type LoreKind } from '../model/types';
 import { extractLoreIds } from '../model/refs';
-import { useItems, useNav, useObserved, useProject, useWorld } from './state';
+import { useItems, useMedia, useNav, useObserved, useProject, useWorld } from './state';
+import { MediaPicker, MediaThumb } from './mediaHooks';
 import { Icon } from './icons';
 
 interface Use {
@@ -24,6 +25,9 @@ export function LoreView({ item }: { item: Item }) {
   const nav = useNav();
   const { vars } = useWorld();
   const [confirmDelete, setConfirmDelete] = useState(false);
+  const [picking, setPicking] = useState(false);
+  const media = useMedia();
+  const attached = (item.mediaIds ?? []).map((h) => media.find((m) => m.hash === h)).filter((m): m is NonNullable<typeof m> => !!m && !m.trashedAt);
   const dialogsVersion = useObserved([project.dialogs as unknown as Y.AbstractType<unknown>], () => Math.random());
 
   // Verwendungsnachweis (VW-06): Szenen, Dialoge, Variablen
@@ -131,6 +135,25 @@ export function LoreView({ item }: { item: Item }) {
               onBlur={(e) => e.currentTarget.value !== (item.description ?? '') && project.updateItem(item.id, { description: e.currentTarget.value })}
             />
           </label>
+
+          <div className="field">
+            <span className="label">Bilder und Dokumente</span>
+            <div className="lore-media" data-testid="lore-media">
+              {attached.map((m) => (
+                <figure key={m.hash} className="lore-media-item">
+                  <MediaThumb meta={m} size="m" />
+                  <figcaption className="small">
+                    <span>{m.caption || m.name}</span>
+                    <button type="button" className="icon-btn" style={{ width: 20, height: 20 }} aria-label={`${m.name} lösen`} onClick={() => project.detachMedia(item.id, m.hash)}>×</button>
+                  </figcaption>
+                </figure>
+              ))}
+              <span style={{ position: 'relative', alignSelf: 'flex-start' }}>
+                <button type="button" className="btn ghost small" onClick={() => setPicking(!picking)}>+ Medium zuordnen</button>
+                {picking && <MediaPicker project={project} onClose={() => setPicking(false)} onPick={(hash) => project.attachMedia(item.id, hash)} />}
+              </span>
+            </div>
+          </div>
         </div>
       </div>
 

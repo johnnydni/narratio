@@ -3,7 +3,8 @@ import { describe, expect, it } from 'vitest';
 import * as Y from 'yjs';
 import { Project } from './project';
 import { seedDemo } from './seed';
-import { createBackupZipWithMedia, mediaPath, readBackupContents, restoreBackupData } from './backup';
+import { createBackupZip, createBackupZipWithMedia, mediaPath, readBackupContents, restoreBackupData, writeScene } from './backup';
+import { strFromU8, unzipSync } from 'fflate';
 import { getOriginal, getThumb, hasOriginal, hashBytes, putOriginal } from './blobs';
 import { imageFor, importFile, purgeMedia, restoreMedia, storeBackupMedia, trashMedia, type Thumbnailer } from './media';
 
@@ -132,5 +133,42 @@ describe('Sicherung mit Medien', () => {
     p.addMedia({ hash: '0'.repeat(64), kind: 'image', name: 'neu.png', mime: 'image/png', size: 1, addedAt: '2026-10-22T00:00:00Z' });
     restoreBackupData(p, data);
     expect(p.listMedia()).toEqual([]);
+  });
+});
+
+describe('Bilder im Text und Zuordnung (ME-04, ME-05)', () => {
+  const hash = 'a'.repeat(64);
+  const meta = { hash, kind: 'image' as const, name: 'Schmiede innen.png', mime: 'image/png', size: 1, caption: 'Die Esse bei Nacht', addedAt: '2026-10-22T00:00:00Z' };
+
+  it('findet Bilder im Szenentext und zugeordnete Medien', () => {
+    const p = demo();
+    p.addMedia(meta);
+    writeScene(p.sceneFragment('s_ankunft'), [
+      { type: 'paragraph', content: [{ type: 'text', text: 'Vorher.' }] },
+      { type: 'mediaImage', attrs: { hash } },
+    ]);
+    expect(p.sceneMedia('s_ankunft')).toEqual([hash]);
+    expect(p.mediaUses(hash)).toEqual([{ itemId: 's_ankunft', inText: true }]);
+
+    p.attachMedia('l_brann', hash);
+    p.attachMedia('l_brann', hash);
+    expect(p.getItem('l_brann')?.mediaIds).toEqual([hash]);
+    expect(p.mediaUses(hash)).toContainEqual({ itemId: 'l_brann', inText: false });
+
+    p.detachMedia('l_brann', hash);
+    expect(p.getItem('l_brann')?.mediaIds).toBeUndefined();
+    expect(p.mediaUses(hash)).toHaveLength(1);
+  });
+
+  it('schreibt Bilder als Markdown-Verweis mit passendem relativen Pfad', () => {
+    const p = demo();
+    p.addMedia(meta);
+    writeScene(p.sceneFragment('s_ankunft'), [{ type: 'mediaImage', attrs: { hash } }]);
+    const files = unzipSync(createBackupZip(p));
+    const path = Object.keys(files).find((f) => f.endsWith('.md') && strFromU8(files[f]!).includes('Esse'));
+    expect(path).toBeDefined();
+    const depth = path!.split('/').length - 1;
+    const link = `![Die Esse bei Nacht](${'../'.repeat(depth)}Medien/${hash.slice(0, 8)}%20Schmiede%20innen.png)`;
+    expect(strFromU8(files[path!]!)).toContain(link);
   });
 });
