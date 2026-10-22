@@ -25,6 +25,8 @@ Schreibwerkzeug für Spiele-Narrative: Manuskript, Dialogbäume mit Varianten un
 
 ## Starten
 
+Voraussetzung: **Node.js 22.12 oder neuer** (`node -v`). Ältere Versionen brechen beim Start mit `does not provide an export named 'styleText'` ab. Unter Windows: aktuelle LTS von nodejs.org installieren oder `winget install OpenJS.NodeJS.LTS`, danach ein neues Terminal öffnen.
+
 ```bash
 npm install
 npm run dev        # Entwicklung, http://localhost:5173

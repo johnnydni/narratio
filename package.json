@@ -4,6 +4,9 @@
   "version": "0.1.0",
   "description": "Schreibwerkzeug für Spiele-Narrative: Manuskript, Dialogbäume mit Varianten und Lore in einem Datenmodell.",
   "type": "module",
+  "engines": {
+    "node": ">=22.12.0"
+  },
   "scripts": {
     "dev": "vite",
     "build": "tsc -b && vite build",
