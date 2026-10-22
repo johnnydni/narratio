@@ -134,3 +134,74 @@ test('Sicherung: ZIP herunterladen, Text ändern, wiederherstellen', async ({ pa
   await expect(page.locator('.ProseMirror')).toContainText('Der Wind trug');
   await expect(page.locator('.ProseMirror')).not.toContainText('Nach der Sicherung geschrieben.');
 });
+
+/** Erzeugt im Browser ein PNG in der gewünschten Größe und Farbe. */
+async function makePng(page: import('@playwright/test').Page, w: number, h: number, color: string): Promise<Buffer> {
+  const b64 = await page.evaluate(
+    ([w, h, color]) => {
+      const c = document.createElement('canvas');
+      c.width = w as number;
+      c.height = h as number;
+      const ctx = c.getContext('2d')!;
+      ctx.fillStyle = color as string;
+      ctx.fillRect(0, 0, w as number, h as number);
+      ctx.fillStyle = '#ffffff';
+      ctx.fillRect(10, 10, 40, 40);
+      return c.toDataURL('image/png').split(',')[1]!;
+    },
+    [w, h, color] as const,
+  );
+  return Buffer.from(b64, 'base64');
+}
+
+test('Medien: importieren, Duplikat erkennen, Vorschau, Unterschrift, Papierkorb', async ({ page }) => {
+  await page.goto('/');
+  await page.getByRole('button', { name: 'Medien', exact: true }).click();
+  await expect(page.getByRole('heading', { name: 'Medien' })).toBeVisible();
+
+  const tor = await makePng(page, 2400, 1600, '#8a7f6c');
+  const karte = await makePng(page, 800, 1200, '#5f7f73');
+  await page.getByTestId('media-file').setInputFiles([
+    { name: 'nordtor_konzept.png', mimeType: 'image/png', buffer: tor },
+    { name: 'unterstadt_karte.png', mimeType: 'image/png', buffer: karte },
+    { name: 'nordtor_kopie.png', mimeType: 'image/png', buffer: tor },
+  ]);
+  await expect(page.getByTestId('media-status')).toHaveText('2 Dateien importiert, 1 schon vorhanden.');
+  const tiles = page.getByTestId('media-grid').locator('img');
+  await expect(tiles).toHaveCount(2);
+
+  // Die Galerie zeigt Vorschaubilder (höchstens 480 px), nicht das 2400-px-Original.
+  await expect.poll(() => tiles.first().evaluate((img: HTMLImageElement) => img.naturalWidth)).toBeGreaterThan(0);
+  const widths = await tiles.evaluateAll((imgs) => imgs.map((i) => (i as HTMLImageElement).naturalWidth));
+  expect(Math.max(...widths)).toBeLessThanOrEqual(480);
+
+  // Einfügen aus der Zwischenablage
+  const gelb = await makePng(page, 300, 300, '#c8a040');
+  await page.evaluate((b64) => {
+    const bytes = Uint8Array.from(atob(b64), (c) => c.charCodeAt(0));
+    const dt = new DataTransfer();
+    dt.items.add(new File([bytes], 'eingefuegt.png', { type: 'image/png' }));
+    document.querySelector('.media-view')!.dispatchEvent(new ClipboardEvent('paste', { clipboardData: dt, bubbles: true }));
+  }, gelb.toString('base64'));
+  await expect(tiles).toHaveCount(3);
+
+  // Ansicht, Bildunterschrift
+  await page.getByTitle('unterstadt_karte.png').click();
+  await expect(page.getByRole('dialog')).toContainText('800 × 1200 px');
+  await page.getByLabel('Bildunterschrift').fill('Karte der Salzwege');
+  if (shots) await page.screenshot({ path: `${shots}/08-medium.png` });
+  await page.keyboard.press('Escape');
+
+  // Bleibt nach Neuladen erhalten
+  await page.reload();
+  await page.getByRole('button', { name: 'Medien', exact: true }).click();
+  await expect(page.getByTestId('media-grid').locator('img')).toHaveCount(3);
+  if (shots) await page.screenshot({ path: `${shots}/09-medien.png` });
+  await page.getByTitle('unterstadt_karte.png').click();
+  await expect(page.getByLabel('Bildunterschrift')).toHaveValue('Karte der Salzwege');
+
+  await page.getByRole('button', { name: 'In den Papierkorb' }).click();
+  await expect(page.getByTestId('media-grid').locator('img')).toHaveCount(2);
+  await page.getByRole('tab', { name: /Papierkorb/ }).click();
+  await expect(page.getByTestId('media-grid').locator('img')).toHaveCount(1);
+});

@@ -12,6 +12,7 @@ Schreibwerkzeug für Spiele-Narrative: Manuskript, Dialogbäume mit Varianten un
 - **Weltzustand:** zentrale Variablen mit Export-Schlüsseln, Verwendungsnachweis, Spielstände.
 - **Lore:** Einträge mit eigenen Feldern, stabiler Export-ID und „Verwendet in“.
 - **Prüfung und Export:** fehlende Fallbacks, tote Verweise, unbekannte Variablen, Sackgassen, unerreichbare Nodes; Export als Unreal-JSON (Bedingungen als Ausdrucksbaum) und Lore als CSV für Data Tables.
+- **Medien:** Bilder und PDFs per Ziehen, Einfügen oder Dateiauswahl. Originale bleiben unverändert und liegen unter ihrem SHA-256 in einer eigenen IndexedDB, nicht im Projekt-Dokument; dieselbe Datei wird nur einmal gespeichert. Vorschaubilder in drei Größen (160/480/1280 px, WebP) entstehen im Web Worker. Galerie mit Platzhalterfarbe, Ansicht mit Zoom, Bildunterschrift und Quelle, Papierkorb. PDFs öffnen vorerst im Browser-Betrachter.
 - **Sicherung:** offenes ZIP, lesbar ohne narratio (Szenen und Lore als Markdown, vollständiger Stand als `narratio.json`). Automatisch alle 15 Minuten im Browser, 30 Tage aufbewahrt; in Chrome und Edge zusätzlich täglich in einen frei wählbaren Ordner. Wiederherstellen ersetzt den Stand und sichert vorher den alten. Alte `.narratio`-Dateien lassen sich weiter einlesen.
 - **Eintauchen:** wer zügig schreibt, dem blendet die Oberfläche aus und eine Klangwelt ein (Regen, Kaminfeuer, Wind, Klangteppich, Nacht), dazu Schreibmaschinen-Anschläge. Alles per Web Audio erzeugt, ohne Dateien. Mausbewegung oder Esc holt die Oberfläche zurück.
 - **Speicherung und Sync:** Yjs (CRDT) in IndexedDB, live zwischen Fenstern per BroadcastChannel. Gleichzeitiges Schreiben in zwei Fenstern wird ohne Verlust zusammengeführt. narratio fordert dauerhaften Speicher an und warnt in der Kopfzeile, wenn der Browser ablehnt.
@@ -20,7 +21,7 @@ Schreibwerkzeug für Spiele-Narrative: Manuskript, Dialogbäume mit Varianten un
 ## Was noch fehlt (nächste Phasen)
 
 - Sync zwischen Geräten über einen Server (P3), bisher nur zwischen Fenstern desselben Browsers
-- Bilder, PDFs, Moodboard und Medien am Dialog (P1/P3)
+- PDF-Betrachter mit Seitenvorschau und Suche, Bilder im Szenentext, Medien an Lore und Dokumenten (P1); Moodboard und Medien am Dialog (P3)
 - Test-Durchlauf eines Dialogs, Skriptansicht, Corkboard, Outliner
 - Unreal-Runtime bzw. Plugin, das das Exportformat auswertet
 - Eigene Audiodateien als Klangwelt

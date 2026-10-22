@@ -7,6 +7,7 @@ const PATHS: Record<string, string> = {
   dialog: 'M2.5 3.5h7v5h-4l-3 2.5zM9.5 6h4v5l-2 -1.5h-2',
   folder: 'M2 4.5h4l1.5 1.5H14v6.5H2z',
   lore: 'M3 2.5h8a2 2 0 0 1 2 2v9H5a2 2 0 0 1-2-2zM3 11.5a2 2 0 0 1 2-2h8',
+  image: 'M2.5 3h11v10h-11zM2.5 11l3.5-3.5 3 3 2-2 2.5 2.5M10.5 6.2v.1',
   world: 'M8 14A6 6 0 1 0 8 2a6 6 0 0 0 0 12zM2 8h12M8 2c2 2 2 10 0 12M8 2c-2 2-2 10 0 12',
   export: 'M8 2.5v8M4.5 6 8 2.5 11.5 6M3 10.5V13.5h10v-3',
   sun: 'M8 11a3 3 0 1 0 0-6 3 3 0 0 0 0 6zM8 1v1.5M8 13.5V15M1 8h1.5M13.5 8H15M3 3l1 1M12 12l1 1M3 13l1-1M12 4l1-1',

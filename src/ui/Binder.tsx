@@ -169,6 +169,10 @@ export function Binder() {
             <span className="twisty"><Icon name="world" size={13} /></span>
             <span className="title">Weltzustand</span>
           </button>
+          <button type="button" className={`row ${nav.view.kind === 'media' ? 'active' : ''}`} style={{ paddingLeft: 4 }} onClick={() => nav.go({ kind: 'media' })}>
+            <span className="twisty"><Icon name="image" size={13} /></span>
+            <span className="title">Medien</span>
+          </button>
           <button type="button" className={`row ${nav.view.kind === 'export' ? 'active' : ''}`} style={{ paddingLeft: 4 }} onClick={() => nav.go({ kind: 'export' })}>
             <span className="twisty"><Icon name="export" size={13} /></span>
             <span className="title">Prüfen und exportieren</span>

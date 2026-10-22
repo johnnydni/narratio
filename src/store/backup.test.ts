@@ -103,9 +103,16 @@ describe('Offenes Backup (SY-02, EX-02)', () => {
   });
 });
 
+/** Ein Projekt auf dem Stand von Schema 1 (P0). */
+function oldDemo(): Project {
+  const p = demo();
+  p.meta.set('schema', 1);
+  return p;
+}
+
 describe('Migrationen', () => {
   it('hebt ein altes Projekt Schritt für Schritt auf die Zielversion', () => {
-    const p = demo();
+    const p = oldDemo();
     const calls: number[] = [];
     const res = migrate(p, { 2: () => calls.push(2), 3: (q) => { calls.push(3); q.meta.set('neu', true); } }, 3);
     expect(res).toEqual({ from: 1, to: 3, tooNew: false });
@@ -122,8 +129,14 @@ describe('Migrationen', () => {
     expect(p.meta.get('schema')).toBe(99);
   });
 
+  it('hebt ein P0-Projekt mit den echten Migrationen auf den aktuellen Stand', () => {
+    const p = oldDemo();
+    expect(migrate(p)).toEqual({ from: 1, to: SCHEMA_VERSION, tooNew: false });
+    expect(p.snapshot()).toEqual(demo().snapshot());
+  });
+
   it('bricht ab, bevor etwas geändert wird, wenn eine Migration fehlt', () => {
-    const p = demo();
+    const p = oldDemo();
     expect(() => migrate(p, { 3: () => undefined }, 3)).toThrow('Schema 2 fehlt');
     expect(p.meta.get('schema')).toBe(1);
   });
@@ -131,6 +144,7 @@ describe('Migrationen', () => {
   it('ergibt dasselbe, wenn zwei Fenster gleichzeitig migrieren', () => {
     const a = new Y.Doc();
     seedDemo(new Project(a));
+    new Project(a).meta.set('schema', 1);
     const b = new Y.Doc();
     Y.applyUpdate(b, Y.encodeStateAsUpdate(a));
     const m = { 2: (q: Project) => { if (!q.meta.has('neu')) q.meta.set('neu', 1); } };
