@@ -10,6 +10,30 @@ import { openSession, type Session } from './store/session';
 import { SessionProvider } from './ui/state';
 import { App } from './ui/App';
 
+/**
+ * Blendet den Startbildschirm aus index.html aus. Beim ersten Öffnen im Tab darf die kurze
+ * Animation zu Ende laufen; beim Neuladen verschwindet er, sobald das Projekt bereit ist.
+ */
+const splashShownAt = performance.now();
+function hideSplash() {
+  const el = document.getElementById('splash');
+  if (!el) return;
+  let first = true;
+  try {
+    first = !sessionStorage.getItem('narratio:splash');
+    sessionStorage.setItem('narratio:splash', '1');
+  } catch {
+    /* ohne sessionStorage: immer kurz */
+  }
+  const reduce = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+  const wait = Math.max(0, (first && !reduce ? 1400 : 250) - (performance.now() - splashShownAt));
+  setTimeout(() => {
+    el.classList.add('out');
+    document.documentElement.classList.add('app-ready');
+    setTimeout(() => el.remove(), 600);
+  }, wait);
+}
+
 function Root() {
   const [session, setSession] = useState<Session | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -30,8 +54,12 @@ function Root() {
     };
   }, []);
 
+  useEffect(() => {
+    if (session || error) hideSplash();
+  }, [session, error]);
+
   if (error) return <div className="loading">Projekt konnte nicht geöffnet werden: {error}</div>;
-  if (!session) return <div className="loading">narratio</div>;
+  if (!session) return null;
   return (
     <SessionProvider value={session}>
       <App />

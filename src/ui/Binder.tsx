@@ -2,9 +2,19 @@ import { useMemo, useState, type DragEvent } from 'react';
 import { LORE_KINDS, STATUSES, type Id, type Item, type ItemType, type LoreKind } from '../model/types';
 import { useItems, useLocalSetting, useNav, useProject } from './state';
 import { Icon } from './icons';
-import { newId } from '../store/project';
+import { newId, type Project } from '../store/project';
 
-const TYPE_ICON: Record<ItemType, string> = { folder: 'folder', scene: 'scene', dialog: 'dialog', lore: 'lore' };
+export const TYPE_ICON: Record<ItemType, string> = { folder: 'folder', scene: 'scene', dialog: 'dialog', lore: 'lore' };
+
+/** Legt einen Eintrag an: Szenen, Dialoge und Ordner landen im Ordner des aktuell gewählten Eintrags. */
+export function createItem(project: Project, items: Item[], activeId: Id | null, type: ItemType, init: Partial<Item> = {}): Id {
+  const titles: Record<ItemType, string> = { scene: 'Neue Szene', dialog: 'Neuer Dialog', folder: 'Neuer Ordner', lore: 'Neuer Eintrag' };
+  const active = items.find((i) => i.id === activeId);
+  const folder = !active || active.type === 'lore' ? null : active.type === 'folder' ? active.id : active.parentId;
+  const id = project.createItem(type, { title: titles[type], parentId: type === 'lore' ? null : folder, ...init });
+  if (type === 'dialog') project.putNode(id, { id: newId('n'), type: 'start', x: 0, y: 120 });
+  return id;
+}
 
 export function Binder() {
   const project = useProject();
@@ -33,17 +43,8 @@ export function Binder() {
     return { childrenOf: map, lore: loreByKind };
   }, [items]);
 
-  /** Neuer Eintrag in den Ordner des aktuell gewählten Eintrags. */
-  const targetFolder = (): Id | null => {
-    const active = items.find((i) => i.id === activeId);
-    if (!active || active.type === 'lore') return null;
-    return active.type === 'folder' ? active.id : active.parentId;
-  };
-
   const create = (type: ItemType, init: Partial<Item> = {}) => {
-    const titles: Record<ItemType, string> = { scene: 'Neue Szene', dialog: 'Neuer Dialog', folder: 'Neuer Ordner', lore: 'Neuer Eintrag' };
-    const id = project.createItem(type, { title: titles[type], parentId: type === 'lore' ? null : targetFolder(), ...init });
-    if (type === 'dialog') project.putNode(id, { id: newId('n'), type: 'start', x: 0, y: 120 });
+    const id = createItem(project, items, activeId, type, init);
     nav.go({ kind: 'item', id });
     if (type !== 'lore') setRenaming(id);
   };
@@ -115,13 +116,13 @@ export function Binder() {
               className="twisty"
               onClick={(e) => { if (isFolder) { e.stopPropagation(); setCollapsed({ ...collapsed, [item.id]: open }); } }}
             >
-              {isFolder ? (open ? '▾' : '▸') : <Icon name={TYPE_ICON[item.type]} size={13} />}
+              {isFolder ? <span className={`chev ${open ? '' : 'closed'}`}>▾</span> : <Icon name={TYPE_ICON[item.type]} size={13} />}
             </span>
             <span className={`title ${item.title ? '' : 'empty'}`}>{item.title || 'Ohne Titel'}</span>
             {item.status && item.type !== 'folder' && <span className={`status-dot st-${item.status}`} title={STATUSES.find((s) => s.status === item.status)?.label} />}
           </button>
         )}
-        {isFolder && open && kids.map((k) => renderRow(k, depth + 1))}
+        {isFolder && open && kids.length > 0 && <div className="binder-kids">{kids.map((k) => renderRow(k, depth + 1))}</div>}
       </div>
     );
   };
@@ -145,7 +146,7 @@ export function Binder() {
               <div key={kind}>
                 <div className="row" style={{ paddingLeft: 4 }}>
                   <button type="button" className="row" style={{ flex: 1, padding: 0 }} onClick={() => setCollapsed({ ...collapsed, [key]: open })} aria-expanded={open}>
-                    <span className="twisty">{open ? '▾' : '▸'}</span>
+                    <span className="twisty"><span className={`chev ${open ? '' : 'closed'}`}>▾</span></span>
                     <span className="title">{plural}</span>
                     <span className="count">{list.length}</span>
                   </button>
@@ -153,12 +154,12 @@ export function Binder() {
                     <Icon name="plus" size={13} />
                   </button>
                 </div>
-                {open && list.map((l) => (
+                {open && list.length > 0 && <div className="binder-kids">{list.map((l) => (
                   <button key={l.id} type="button" className={`row ${activeId === l.id ? 'active' : ''}`} style={{ paddingLeft: 32 }} onClick={() => nav.go({ kind: 'item', id: l.id })}>
                     <span className={`kind-dot k-${kind}`} />
                     <span className={`title ${l.title ? '' : 'empty'}`}>{l.title || 'Ohne Titel'}</span>
                   </button>
-                ))}
+                ))}</div>}
               </div>
             );
           })}

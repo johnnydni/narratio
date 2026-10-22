@@ -7,6 +7,7 @@ import { imageFor, importFile, purgeMedia, restoreMedia, trashMedia } from '../s
 import { formatBytes } from '../store/storage';
 import { workerThumbnailer } from '../media/thumbnailer';
 import { download } from './BackupPanel';
+import { usePresence, useToast } from './motion';
 
 type Tab = 'all' | 'image' | 'pdf' | 'trash';
 
@@ -23,8 +24,9 @@ function Tile({ meta, onOpen }: { meta: MediaMeta; onOpen: () => void }) {
   );
 }
 
-function Viewer({ meta, onClose, onPrev, onNext }: { meta: MediaMeta; onClose: () => void; onPrev: () => void; onNext: () => void }) {
+function Viewer({ meta, onClose, onPrev, onNext, state }: { meta: MediaMeta; onClose: () => void; onPrev: () => void; onNext: () => void; state: 'open' | 'closing' }) {
   const project = useProject();
+  const toast = useToast();
   const [zoom, setZoom] = useState(false);
   const preview = useMediaUrl(meta, 'l');
   const original = useMediaUrl(meta, 'original', zoom);
@@ -56,7 +58,7 @@ function Viewer({ meta, onClose, onPrev, onNext }: { meta: MediaMeta; onClose: (
   };
 
   return (
-    <div className="viewer" role="dialog" aria-label={meta.name}>
+    <div className="viewer" role="dialog" aria-label={meta.name} data-state={state}>
       <div className={`viewer-stage ${zoom ? 'zoomed' : ''}`} onClick={() => meta.kind === 'image' && setZoom(!zoom)} title={zoom ? 'Einpassen' : 'Originalgröße'}>
         {meta.kind !== 'image' ? (
           <span className="muted">{meta.kind === 'pdf' ? 'PDF' : 'Datei'}: {meta.name}</span>
@@ -100,7 +102,11 @@ function Viewer({ meta, onClose, onPrev, onNext }: { meta: MediaMeta; onClose: (
         <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
           <button type="button" className="btn small" onClick={() => void saveOriginal()}>Original speichern</button>
           {!meta.trashedAt ? (
-            <button type="button" className="btn small" onClick={() => { trashMedia(project, meta.hash); onClose(); }}><Icon name="trash" size={13} /> In den Papierkorb</button>
+            <button type="button" className="btn small" onClick={() => {
+              trashMedia(project, meta.hash);
+              onClose();
+              toast({ text: `„${meta.name}“ liegt im Papierkorb.`, action: { label: 'Rückgängig', run: () => restoreMedia(project, meta.hash) } });
+            }}><Icon name="trash" size={13} /> In den Papierkorb</button>
           ) : (
             <>
               <button type="button" className="btn small" onClick={() => restoreMedia(project, meta.hash)}>Wiederherstellen</button>
@@ -135,6 +141,11 @@ export default function MediaView() {
   const images = shown.filter((m) => m.kind === 'image');
   const others = shown.filter((m) => m.kind !== 'image');
   const open = media.find((m) => m.hash === openHash);
+  // Beim Schließen bleibt das zuletzt gezeigte Medium stehen, bis die Ansicht ausgeblendet ist.
+  const viewer = usePresence(!!open, 160);
+  const lastOpen = useRef<MediaMeta | undefined>(undefined);
+  if (open) lastOpen.current = open;
+  const shownMeta = open ?? lastOpen.current;
 
   const importFiles = useCallback(
     async (files: File[]) => {
@@ -266,7 +277,7 @@ export default function MediaView() {
           </div>
         )}
       </div>
-      {open && <Viewer meta={open} onClose={() => setOpenHash(null)} onPrev={() => step(-1)} onNext={() => step(1)} />}
+      {viewer.mounted && shownMeta && <Viewer meta={shownMeta} state={viewer.state} onClose={() => setOpenHash(null)} onPrev={() => step(-1)} onNext={() => step(1)} />}
     </div>
   );
 }

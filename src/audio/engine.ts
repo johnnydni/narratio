@@ -6,6 +6,8 @@
  *          Anschläge → Schreibmaschinen-Bus ─────────────┴→ Master → Ausgabe
  */
 
+import { keyPan, keyVariant, renderTypewriterBank, type KeyKind, type TypewriterBank } from './typewriter';
+
 export type ScapeId = 'rain' | 'fire' | 'wind' | 'drone' | 'night';
 
 export const SCAPES: { id: ScapeId; name: string; hint: string }[] = [
@@ -266,61 +268,46 @@ class AudioEngine {
 
   /* ---------------- Schreibmaschine ---------------- */
 
+  private bank: TypewriterBank | null = null;
+  private bankLoading: Promise<void> | null = null;
+  private lastKey = 0;
+
+  /** Rendert die Anschläge im Hintergrund vor; braucht keinen Nutzerklick. */
+  preloadKeys(): Promise<void> {
+    this.bankLoading ??= renderTypewriterBank()
+      .then((b) => { this.bank = b; })
+      .catch(() => { /* ohne Web Audio bleibt es still */ });
+    return this.bankLoading;
+  }
+
   /**
-   * Ein Anschlag: metallischer Typenhebel (gefiltertes Rauschen), dumpfer Schlag auf Papier und
-   * Walze (kurzer tiefer Sinus), dazu leichte Zufallsvariation, damit es nicht maschinell klingt.
+   * Ein Anschlag aus der vorgerechneten Bank. Gleiche Taste, gleicher Typenhebel; dazu kleine
+   * Schwankungen in Tonhöhe und Lautstärke. Schnelles Tippen klingt etwas leichter, wie bei
+   * einer echten Maschine, auf der man in Fahrt ist.
    */
-  key(kind: 'char' | 'space' | 'enter' | 'back', volume = 0.5): void {
+  key(kind: KeyKind, volume = 0.5, char = ''): void {
     const ctx = this.ensure();
     this.keysBus.gain.value = volume;
-    const t = ctx.currentTime + 0.001;
-    const r = (a: number, b: number) => a + Math.random() * (b - a);
-
-    const strike = (freq: number, q: number, dur: number, gain: number, at = t) => {
-      const src = this.loop('white');
-      const f = ctx.createBiquadFilter(); f.type = 'bandpass'; f.frequency.value = freq; f.Q.value = q;
-      const g = ctx.createGain();
-      g.gain.setValueAtTime(gain, at);
-      g.gain.exponentialRampToValueAtTime(0.0001, at + dur);
-      const p = ctx.createStereoPanner(); p.pan.value = r(-0.15, 0.15);
-      src.connect(f).connect(g).connect(p).connect(this.keysBus);
-      src.start(at); src.stop(at + dur + 0.02);
-    };
-    const thump = (freq: number, dur: number, gain: number, at = t) => {
-      const o = ctx.createOscillator(); o.type = 'sine';
-      o.frequency.setValueAtTime(freq * 1.6, at);
-      o.frequency.exponentialRampToValueAtTime(freq, at + dur * 0.6);
-      const g = ctx.createGain();
-      g.gain.setValueAtTime(gain, at);
-      g.gain.exponentialRampToValueAtTime(0.0001, at + dur);
-      o.connect(g).connect(this.keysBus);
-      o.start(at); o.stop(at + dur + 0.02);
-    };
-
-    if (kind === 'char') {
-      strike(r(2600, 3800), 2.5, r(0.018, 0.03), r(0.55, 0.8));
-      strike(r(900, 1400), 1.2, 0.04, 0.3, t + 0.004);
-      thump(r(110, 150), 0.05, 0.5, t + 0.006);
-    } else if (kind === 'space') {
-      strike(r(1500, 2000), 1.5, 0.03, 0.35);
-      thump(r(80, 100), 0.07, 0.6);
-    } else if (kind === 'back') {
-      strike(r(3500, 4500), 3, 0.015, 0.35);
-    } else {
-      // Wagenrücklauf: Ratschen, Gleiten, kleine Glocke
-      for (let i = 0; i < 6; i++) strike(r(2000, 3000), 4, 0.012, 0.25, t + i * 0.035);
-      const src = this.loop('pink');
-      const f = ctx.createBiquadFilter(); f.type = 'bandpass'; f.Q.value = 1.5;
-      f.frequency.setValueAtTime(800, t + 0.2); f.frequency.linearRampToValueAtTime(2200, t + 0.5);
-      const g = ctx.createGain();
-      g.gain.setValueAtTime(0, t + 0.2); g.gain.linearRampToValueAtTime(0.25, t + 0.28); g.gain.linearRampToValueAtTime(0, t + 0.52);
-      src.connect(f).connect(g).connect(this.keysBus); src.start(t + 0.2); src.stop(t + 0.6);
-      const bell = ctx.createOscillator(); bell.frequency.value = 2093;
-      const bg = ctx.createGain();
-      bg.gain.setValueAtTime(0, t + 0.55); bg.gain.linearRampToValueAtTime(0.18, t + 0.556); bg.gain.exponentialRampToValueAtTime(0.0001, t + 1.6);
-      bell.connect(bg).connect(this.keysBus); bell.start(t + 0.55); bell.stop(t + 1.7);
-      thump(70, 0.12, 0.5, t + 0.52);
+    if (!this.bank) {
+      void this.preloadKeys();
+      return;
     }
+    const list = this.bank[kind];
+    const idx = kind === 'char' && char ? keyVariant(char, list.length) : Math.floor(Math.random() * list.length);
+    const now = performance.now();
+    const gap = now - this.lastKey;
+    this.lastKey = now;
+    const flow = gap < 90 ? 0.8 : gap < 160 ? 0.9 : 1;
+
+    const src = ctx.createBufferSource();
+    src.buffer = list[idx]!;
+    src.playbackRate.value = 1 + (Math.random() - 0.5) * 0.05;
+    const g = ctx.createGain();
+    g.gain.value = flow * (0.85 + Math.random() * 0.25);
+    const p = ctx.createStereoPanner();
+    p.pan.value = kind === 'char' ? keyPan(char) + (Math.random() - 0.5) * 0.06 : 0;
+    src.connect(g).connect(p).connect(this.keysBus);
+    src.start(ctx.currentTime + 0.001);
   }
 }
 
