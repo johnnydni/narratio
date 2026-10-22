@@ -3,7 +3,7 @@ import { expect, test } from '@playwright/test';
 const shots = process.env.SHOTS_DIR;
 
 test('öffnet das Beispielprojekt und zeigt die Szene', async ({ page }) => {
-  await page.goto('/');
+  await page.goto('/#/p/default');
   await expect(page.locator('.wordmark')).toHaveText('narratio');
   await expect(page.locator('.ProseMirror')).toContainText('Der Wind trug den Geruch');
   await expect(page.locator('.ProseMirror .ref').first()).toBeVisible();
@@ -14,8 +14,8 @@ test('P0-Gate: zwei Fenster gleichen Text, Lore und Dialog live ab', async ({ br
   const context = await browser.newContext({ viewport: { width: 1440, height: 900 } });
   const a = await context.newPage();
   const b = await context.newPage();
-  await a.goto('/');
-  await b.goto('/');
+  await a.goto('/#/p/default');
+  await b.goto('/#/p/default');
   await expect(a.locator('.ProseMirror')).toContainText('Der Wind');
   await expect(b.locator('.ProseMirror')).toContainText('Der Wind');
   await expect(a.getByTestId('sync-status')).toContainText('2 Fenster verbunden');
@@ -55,7 +55,7 @@ test('P0-Gate: zwei Fenster gleichen Text, Lore und Dialog live ab', async ({ br
 });
 
 test('Dialog: Varianten, Vorschau mit Spielstand und Prüfung', async ({ page }) => {
-  await page.goto('/');
+  await page.goto('/#/p/default');
   await page.getByRole('button', { name: 'Torverhör: Brann' }).click();
   await expect(page.locator('.react-flow__node')).toHaveCount(8);
   await page.getByLabel('Spielstand für die Vorschau').selectOption({ label: 'Magierin, Salzspur Phase 3' });
@@ -67,7 +67,7 @@ test('Dialog: Varianten, Vorschau mit Spielstand und Prüfung', async ({ page })
 
 test('Dunkles Design', async ({ page }) => {
   await page.emulateMedia({ colorScheme: 'dark' });
-  await page.goto('/');
+  await page.goto('/#/p/default');
   await page.getByRole('button', { name: 'Torverhör: Brann' }).click();
   await expect(page.locator('.react-flow__node')).toHaveCount(8);
   await page.getByLabel('Spielstand für die Vorschau').selectOption({ label: 'Fremdenführerin, Stufe 2' });
@@ -76,7 +76,7 @@ test('Dunkles Design', async ({ page }) => {
 });
 
 test('Lore, Weltzustand und Export', async ({ page }) => {
-  await page.goto('/');
+  await page.goto('/#/p/default');
   await page.getByRole('button', { name: 'Aschenklinge', exact: true }).click();
   await expect(page.locator('.uses')).toContainText('Torverhör: Brann');
   if (shots) await page.screenshot({ path: `${shots}/03-lore.png` });
@@ -90,7 +90,7 @@ test('Lore, Weltzustand und Export', async ({ page }) => {
 });
 
 test('Immersion: Schreiben blendet die Oberfläche aus, Mausbewegung holt sie zurück', async ({ page }) => {
-  await page.goto('/');
+  await page.goto('/#/p/default');
   await page.locator('.ProseMirror p').last().click();
   await page.keyboard.press('End');
   await page.keyboard.type(' Sie atmete durch und ging weiter.', { delay: 20 });
@@ -103,7 +103,7 @@ test('Immersion: Schreiben blendet die Oberfläche aus, Mausbewegung holt sie zu
 });
 
 test('Sicherung: ZIP herunterladen, Text ändern, wiederherstellen', async ({ page }) => {
-  await page.goto('/');
+  await page.goto('/#/p/default');
   await expect(page.locator('.ProseMirror')).toContainText('Der Wind trug');
   await page.getByRole('button', { name: 'Prüfen und exportieren' }).click();
 
@@ -155,7 +155,7 @@ async function makePng(page: import('@playwright/test').Page, w: number, h: numb
 }
 
 test('Medien: importieren, Duplikat erkennen, Vorschau, Unterschrift, Papierkorb', async ({ page }) => {
-  await page.goto('/');
+  await page.goto('/#/p/default');
   await page.getByRole('button', { name: 'Medien', exact: true }).click();
   await expect(page.getByRole('heading', { name: 'Medien' })).toBeVisible();
 
@@ -207,7 +207,7 @@ test('Medien: importieren, Duplikat erkennen, Vorschau, Unterschrift, Papierkorb
 });
 
 test('Bilder im Text und Zuordnung zu Szene und Lore', async ({ page }) => {
-  await page.goto('/');
+  await page.goto('/#/p/default');
   await expect(page.locator('.ProseMirror')).toContainText('Der Wind trug den Geruch');
   await page.locator('.ProseMirror p').first().click();
   await page.mouse.move(200, 200);
@@ -259,7 +259,7 @@ test('Bilder im Text und Zuordnung zu Szene und Lore', async ({ page }) => {
 });
 
 test('Startbildschirm, Schnellsuche und Meldung mit Rückgängig', async ({ page }) => {
-  await page.goto('/');
+  await page.goto('/#/p/default');
   await expect(page.locator('#splash')).toBeVisible();
   await expect(page.locator('#splash')).toHaveCount(0, { timeout: 5000 });
   await expect(page.locator('.ProseMirror')).toContainText('Der Wind trug den Geruch');
@@ -291,4 +291,66 @@ test('Startbildschirm, Schnellsuche und Meldung mit Rückgängig', async ({ page
   await expect(page.getByTestId('media-grid')).toHaveCount(0);
   await page.getByRole('button', { name: 'Rückgängig' }).click();
   await expect(page.getByTestId('media-grid').locator('img')).toHaveCount(1);
+});
+
+test('Bibliothek: Regal, neues Buch anlegen, aufschlagen, zurück, Papierkorb', async ({ page }) => {
+  await page.goto('/');
+  await expect(page.getByRole('heading', { name: 'Deine Bibliothek' })).toBeVisible();
+  // Beim ersten Start steht das Beispielprojekt im Regal
+  await expect(page.getByTestId('book')).toHaveCount(1);
+  await expect(page.getByTestId('book').first()).toHaveAttribute('aria-label', 'Aschenstadt');
+  if (shots) await page.screenshot({ path: `${shots}/13-bibliothek.png` });
+
+  await page.getByRole('button', { name: 'Neues Buch' }).click();
+  await page.getByLabel('Titel des neuen Projekts').fill('Die Salzkrone');
+  await page.getByRole('button', { name: 'Anlegen' }).click();
+  await expect(page.getByTestId('book')).toHaveCount(2);
+  await expect(page.getByTestId('book-details')).toContainText('Die Salzkrone');
+  if (shots) await page.screenshot({ path: `${shots}/14-buch-gewaehlt.png` });
+
+  await page.getByRole('button', { name: 'Aufschlagen' }).click();
+  await expect(page).toHaveURL(/#\/p\/\w+/);
+  await expect(page.locator('.crumbs .path')).toContainText('Erste Szene');
+  await page.locator('.ProseMirror').click();
+  await page.keyboard.type('Salz auf den Lippen.');
+  await page.waitForTimeout(300);
+
+  // Das Wortzeichen führt zurück (nach dem Tippen erst die Maus bewegen: Immersion); das Beispielprojekt ist unberührt
+  await page.mouse.move(100, 100);
+  await page.mouse.move(400, 300);
+  await expect(page.locator('html')).not.toHaveClass(/immersed/);
+  await page.locator('.wordmark').click();
+  await expect(page.getByRole('heading', { name: 'Deine Bibliothek' })).toBeVisible();
+  await page.getByRole('button', { name: 'Aschenstadt' }).click();
+  await page.getByRole('button', { name: 'Aufschlagen' }).click();
+  await expect(page.locator('.ProseMirror')).not.toContainText('Salz auf den Lippen');
+  await page.goBack();
+  await page.goBack();
+  await expect(page.locator('.ProseMirror')).toContainText('Salz auf den Lippen');
+
+  // Papierkorb mit Rückgängig
+  await page.locator('.wordmark').click();
+  await page.getByRole('button', { name: 'Die Salzkrone' }).click();
+  await page.getByRole('button', { name: 'In den Papierkorb' }).click();
+  await expect(page.getByTestId('book')).toHaveCount(1);
+  await page.getByRole('button', { name: 'Rückgängig' }).click();
+  await expect(page.getByTestId('book')).toHaveCount(2);
+});
+
+test('Seitenleisten lassen sich ein- und ausklappen', async ({ page }) => {
+  await page.goto('/#/p/default');
+  await expect(page.locator('.ProseMirror')).toContainText('Der Wind');
+  const binder = page.locator('.binder');
+  await expect(binder).toBeVisible();
+  await page.getByRole('button', { name: 'Linke Leiste' }).click();
+  await expect(page.locator('.app')).toHaveClass(/left-hidden/);
+  await page.getByRole('button', { name: 'Rechte Leiste' }).click();
+  await expect(page.locator('.app')).toHaveClass(/right-hidden/);
+  if (shots) await page.screenshot({ path: `${shots}/15-leisten-zu.png` });
+  // bleibt nach dem Neuladen so
+  await page.waitForTimeout(300);
+  await page.reload();
+  await expect(page.locator('.app')).toHaveClass(/left-hidden/);
+  await page.keyboard.press('ControlOrMeta+Alt+KeyB');
+  await expect(page.locator('.app')).not.toHaveClass(/left-hidden/);
 });

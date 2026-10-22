@@ -48,3 +48,17 @@ describe('Browser-interne Sicherungen', () => {
     expect(readBackupZip(zip!).items.length).toBe(p.listItems().length);
   });
 });
+
+describe('Sicherungen je Projekt', () => {
+  it('listet und räumt nur die Sicherungen des eigenen Projekts', async () => {
+    const a = new Project(new Y.Doc(), 'proj-a');
+    const b = new Project(new Y.Doc(), 'proj-b');
+    seedDemo(a);
+    seedDemo(b);
+    await saveLocalBackup(b, 'manuell', new Date('2026-10-01T09:00:00Z'));
+    // Mehr als genug Sicherungen in A, damit dort aufgeräumt wird
+    for (let i = 0; i < 12; i++) await saveLocalBackup(a, 'auto', new Date(`2026-10-22T10:${String(i).padStart(2, '0')}:00Z`));
+    expect((await listLocalBackups('proj-a')).every((x) => x.projectId === 'proj-a')).toBe(true);
+    expect((await listLocalBackups('proj-b')).map((x) => x.createdAt)).toEqual(['2026-10-01T09:00:00.000Z']);
+  });
+});

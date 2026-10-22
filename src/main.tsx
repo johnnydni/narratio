@@ -1,4 +1,4 @@
-import { StrictMode, useEffect, useState } from 'react';
+import { lazy, StrictMode, Suspense, useEffect, useState } from 'react';
 import { createRoot } from 'react-dom/client';
 // Schriften lokal gebündelt: offline verfügbar, keine Anfrage an Dritte.
 import '@fontsource-variable/inter';
@@ -10,38 +10,68 @@ import { openSession, type Session } from './store/session';
 import { SessionProvider } from './ui/state';
 import { App } from './ui/App';
 
+const Library = lazy(() => import('./ui/Library'));
+
 /**
- * Blendet den Startbildschirm aus index.html aus. Beim ersten Öffnen im Tab darf die kurze
- * Animation zu Ende laufen; beim Neuladen verschwindet er, sobald das Projekt bereit ist.
+ * Blendet den Startbildschirm aus index.html aus. Beim ersten Öffnen im Tab läuft die Animation
+ * ganz durch, beim Neuladen etwas kürzer. Ein Klick oder eine Taste überspringt ihn.
  */
 const splashShownAt = performance.now();
-function hideSplash() {
+let splashGone = false;
+function hideSplash(immediately = false) {
   const el = document.getElementById('splash');
-  if (!el) return;
+  if (!el || splashGone) return;
   let first = true;
   try {
     first = !sessionStorage.getItem('narratio:splash');
     sessionStorage.setItem('narratio:splash', '1');
   } catch {
-    /* ohne sessionStorage: immer kurz */
+    /* ohne sessionStorage: wie beim ersten Mal */
   }
   const reduce = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
-  const wait = Math.max(0, (first && !reduce ? 1400 : 250) - (performance.now() - splashShownAt));
-  setTimeout(() => {
+  const wait = immediately ? 0 : Math.max(0, (reduce ? 300 : first ? 2600 : 1300) - (performance.now() - splashShownAt));
+  const go = () => {
+    if (splashGone) return;
+    splashGone = true;
     el.classList.add('out');
     document.documentElement.classList.add('app-ready');
-    setTimeout(() => el.remove(), 600);
-  }, wait);
+    setTimeout(() => el.remove(), 700);
+  };
+  const timer = setTimeout(go, wait);
+  const skip = () => {
+    clearTimeout(timer);
+    go();
+  };
+  el.addEventListener('click', skip, { once: true });
+  window.addEventListener('keydown', skip, { once: true });
 }
 
-function Root() {
+type Route = { kind: 'library' } | { kind: 'project'; id: string };
+
+function readRoute(): Route {
+  const m = /^#\/p\/([\w-]+)/.exec(location.hash);
+  return m ? { kind: 'project', id: m[1]! } : { kind: 'library' };
+}
+
+function useRoute(): Route {
+  const [route, setRoute] = useState(readRoute);
+  useEffect(() => {
+    const on = () => setRoute(readRoute());
+    window.addEventListener('hashchange', on);
+    return () => window.removeEventListener('hashchange', on);
+  }, []);
+  return route;
+}
+
+function ProjectRoot({ id }: { id: string }) {
   const [session, setSession] = useState<Session | null>(null);
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
     let alive = true;
     let opened: Session | null = null;
-    openSession()
+    setSession(null);
+    openSession(id)
       .then((s) => {
         opened = s;
         if (alive) setSession(s);
@@ -52,7 +82,7 @@ function Root() {
       alive = false;
       opened?.destroy();
     };
-  }, []);
+  }, [id]);
 
   useEffect(() => {
     if (session || error) hideSplash();
@@ -64,6 +94,16 @@ function Root() {
     <SessionProvider value={session}>
       <App />
     </SessionProvider>
+  );
+}
+
+function Root() {
+  const route = useRoute();
+  if (route.kind === 'project') return <ProjectRoot key={route.id} id={route.id} />;
+  return (
+    <Suspense fallback={null}>
+      <Library onReady={() => hideSplash()} />
+    </Suspense>
   );
 }
 

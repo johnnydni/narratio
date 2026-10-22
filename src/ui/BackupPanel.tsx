@@ -56,9 +56,9 @@ export function BackupPanel() {
   const toast = useToast();
 
   const refresh = useCallback(async () => {
-    setLocal(await listLocalBackups().catch(() => []));
+    setLocal(await listLocalBackups(project.id).catch(() => []));
     setFolder(await folderState().catch((): FolderState => ({ kind: 'unsupported' })));
-  }, []);
+  }, [project.id]);
 
   useEffect(() => {
     void refresh();

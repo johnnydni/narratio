@@ -1,6 +1,9 @@
 /** Schlichte Strich-Icons, 16 px, folgen der Textfarbe. */
 const PATHS: Record<string, string> = {
   sidebar: 'M2.5 3.5h11v9h-11zM6 3.5v9',
+  sidebarRight: 'M2.5 3.5h11v9h-11zM10 3.5v9',
+  library: 'M3 2.5v11M5.5 2.5v11M8 3.5l3 9.5M12.5 13.5h-11',
+  more: 'M4 8h.01M8 8h.01M12 8h.01',
   search: 'M7 11.5a4.5 4.5 0 1 0 0-9 4.5 4.5 0 0 0 0 9zM10.5 10.5 14 14',
   plus: 'M8 3v10M3 8h10',
   scene: 'M4 2.5h6l2.5 2.5v8.5h-8.5zM9.5 2.5V5.5h3M6 8.5h5M6 11h3.5',

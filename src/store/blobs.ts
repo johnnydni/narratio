@@ -10,11 +10,26 @@
 export const THUMB_SIZES = { s: 160, m: 480, l: 1280 } as const;
 export type ThumbSize = keyof typeof THUMB_SIZES;
 
-const DB = 'narratio-media';
 const ORIGINALS = 'originals';
 const THUMBS = 'thumbs';
 
+/** Jedes Projekt hat seinen eigenen Medienspeicher; das erste behält den alten Namen. */
+export function mediaDbName(projectId: string): string {
+  return projectId === 'default' ? 'narratio-media' : `narratio-media-${projectId}`;
+}
+
+let DB = mediaDbName('default');
 let dbPromise: Promise<IDBDatabase> | null = null;
+
+/** Schaltet auf den Medienspeicher eines Projekts um (beim Öffnen eines Projekts). */
+export function setMediaProject(projectId: string): void {
+  const name = mediaDbName(projectId);
+  if (name === DB) return;
+  const old = dbPromise;
+  dbPromise = null;
+  DB = name;
+  void old?.then((db) => db.close()).catch(() => undefined);
+}
 
 function openDb(): Promise<IDBDatabase> {
   dbPromise ??= new Promise((resolve, reject) => {

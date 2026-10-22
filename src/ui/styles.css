@@ -111,11 +111,12 @@ button { cursor: pointer; }
 
 .app { height: 100%; display: flex; flex-direction: column; }
 .topbar {
+  position: relative; z-index: 30;
   height: 48px; flex-shrink: 0; display: flex; align-items: center; gap: 14px;
   padding: 0 16px; border-bottom: 1px solid var(--line);
   transition: opacity 1.2s ease;
 }
-.wordmark { font-family: var(--serif); font-weight: 500; font-size: 17px; color: var(--accent); letter-spacing: 0.01em; }
+.wordmark { text-decoration: none; font-family: var(--serif); font-weight: 500; font-size: 17px; color: var(--accent); letter-spacing: 0.01em; }
 .crumbs { display: flex; align-items: baseline; gap: 8px; min-width: 0; overflow: hidden; white-space: nowrap; }
 .crumbs .sep { color: var(--line); }
 .crumbs .project { font-weight: 600; }
@@ -179,7 +180,7 @@ button { cursor: pointer; }
 /* ---------- Binder ---------- */
 
 .binder {
-  width: 264px; flex-shrink: 0; background: var(--bg-sunken); border-right: 1px solid var(--line);
+  --w: 264px; width: var(--w); flex-shrink: 0; background: var(--bg-sunken); border-right: 1px solid var(--line);
   display: flex; flex-direction: column; overflow: hidden; transition: opacity 1.2s ease;
 }
 .binder-scroll { flex: 1; overflow-y: auto; padding: 10px 8px 16px; }
@@ -239,7 +240,7 @@ button { cursor: pointer; }
 .focus-mode .ProseMirror > .has-focus { opacity: 1; }
 
 .side {
-  width: 300px; flex-shrink: 0; background: var(--bg); border-left: 1px solid var(--line);
+  --w: 300px; width: var(--w); flex-shrink: 0; background: var(--bg); border-left: 1px solid var(--line);
   padding: 16px 20px; display: flex; flex-direction: column; gap: 22px; overflow-y: auto;
   transition: opacity 1.2s ease;
 }
@@ -288,7 +289,7 @@ button { cursor: pointer; }
 .field-row .val { border: 0; border-bottom: 1px solid var(--line); background: transparent; font-size: 14px; padding: 4px 0; }
 .field-row .val:focus, .field-row .key:focus { outline: none; border-bottom-color: var(--accent); }
 .serif-text { font-family: var(--serif); font-size: 17px; line-height: 1.7; }
-.uses { width: 340px; flex-shrink: 0; background: var(--bg); border-left: 1px solid var(--line); padding: 22px 22px; display: flex; flex-direction: column; gap: 16px; overflow-y: auto; }
+.uses { --w: 340px; width: var(--w); flex-shrink: 0; background: var(--bg); border-left: 1px solid var(--line); padding: 22px 22px; display: flex; flex-direction: column; gap: 16px; overflow-y: auto; }
 .use {
   border: 0; background: transparent; border-radius: 8px; padding: 9px 8px; text-align: left; width: 100%;
   display: flex; flex-direction: column; gap: 3px;
@@ -305,7 +306,7 @@ button { cursor: pointer; }
 .dialog-bar { height: 44px; flex-shrink: 0; display: flex; align-items: center; gap: 6px; padding: 0 12px; border-bottom: 1px solid var(--line); background: var(--bg); }
 .dialog-body { flex: 1; min-height: 0; display: flex; }
 .canvas { flex: 1; min-width: 0; position: relative; }
-.inspector { width: 380px; flex-shrink: 0; background: var(--bg-sunken); border-left: 1px solid var(--line); overflow-y: auto; padding: 18px 20px 40px; display: flex; flex-direction: column; gap: 20px; }
+.inspector { --w: 380px; width: var(--w); flex-shrink: 0; background: var(--bg-sunken); border-left: 1px solid var(--line); overflow-y: auto; padding: 18px 20px 40px; display: flex; flex-direction: column; gap: 20px; }
 
 .react-flow { --xy-background-color: var(--bg); --xy-edge-stroke: var(--muted); --xy-edge-stroke-selected: var(--accent); --xy-connectionline-stroke: var(--accent); --xy-minimap-background-color: var(--surface); --xy-controls-button-background-color: var(--surface); --xy-controls-button-color: var(--text); --xy-controls-button-border-color: var(--line); --xy-controls-button-background-color-hover: var(--bg-sunken); }
 .react-flow__attribution { display: none; }
@@ -405,12 +406,12 @@ pre.code { background: var(--bg-sunken); border: 1px solid var(--line); border-r
 
 @media (max-width: 900px) {
   .side, .uses { display: none; }
-  .inspector { width: 320px; }
-  .binder { width: 220px; }
+  .inspector { --w: 320px; }
+  .binder { --w: 220px; }
 }
 @media (max-width: 640px) {
   .binder { display: none; }
-  .inspector { position: absolute; right: 0; top: 0; bottom: 0; width: 100%; z-index: 20; }
+  .inspector { position: absolute; right: 0; top: 0; bottom: 0; --w: 100vw; z-index: 20; }
   .fields { grid-template-columns: 1fr; }
 }
 @media (prefers-reduced-motion: reduce) {
@@ -591,3 +592,131 @@ kbd { font-family: var(--sans); font-size: 11px; border: 1px solid var(--line); 
 .search-btn:hover { border-color: var(--muted); color: var(--text); }
 .search-btn kbd { margin-left: auto; }
 @media (max-width: 900px) { .search-btn { min-width: 0; } .search-btn .sb-label, .search-btn kbd { display: none; } }
+
+/* Einklappbare Seitenleisten: gleiten aus dem Bild, der Inhalt behält seine Breite */
+.binder, .side, .uses, .inspector {
+  transition: margin var(--dur-slow) var(--ease-in-out), opacity var(--dur-slow) ease, background-color 2.4s ease;
+}
+.left-hidden .binder { margin-left: calc(-1 * var(--w)); opacity: 0; pointer-events: none; }
+.right-hidden .side, .right-hidden .uses, .right-hidden .inspector { margin-right: calc(-1 * var(--w)); opacity: 0; pointer-events: none; }
+.immersed .binder, .immersed .side { transition: opacity 2.4s ease, background-color 2.4s ease; }
+
+/* ---------- Bibliothek ---------- */
+
+.library {
+  --wood-hi: #dccaa6; --wood: #c4ab80; --wood-lo: #a68a5c; --wall: #ebe7dd; --wall-shadow: rgba(60, 45, 20, 0.16);
+  --gilt: rgba(236, 210, 150, 0.75); --cream: #f5ecd9;
+  min-height: 100%; display: flex; flex-direction: column;
+  background:
+    radial-gradient(ellipse 80% 55% at 50% -10%, color-mix(in srgb, #fff6e0 55%, transparent), transparent 70%),
+    var(--bg);
+}
+:root[data-theme='dark'] .library { --wood-hi: #4a3d30; --wood: #3a2f25; --wood-lo: #261e17; --wall: #18171a; --wall-shadow: rgba(0, 0, 0, 0.5); --gilt: rgba(214, 186, 128, 0.6); --cream: #ece2cc; background: radial-gradient(ellipse 80% 55% at 50% -10%, rgba(255, 220, 160, 0.07), transparent 70%), var(--bg); }
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme='light']) .library { --wood-hi: #4a3d30; --wood: #3a2f25; --wood-lo: #261e17; --wall: #18171a; --wall-shadow: rgba(0, 0, 0, 0.5); --gilt: rgba(214, 186, 128, 0.6); --cream: #ece2cc; background: radial-gradient(ellipse 80% 55% at 50% -10%, rgba(255, 220, 160, 0.07), transparent 70%), var(--bg); }
+}
+.lib-top { height: 56px; display: flex; align-items: center; gap: 10px; padding: 0 24px; }
+.lib-top .wordmark { font-size: 19px; }
+.lib-main { width: 100%; max-width: 1120px; margin: 0 auto; padding: 28px 24px 80px; display: flex; flex-direction: column; gap: 28px; }
+.lib-head { display: flex; flex-direction: column; gap: 6px; animation: rise-in 0.6s var(--ease-out) both; }
+.lib-title { font-family: var(--serif); font-weight: 500; font-size: 38px; letter-spacing: -0.005em; margin: 0; }
+.lib-sub { margin: 0; color: var(--muted); font-size: 14px; }
+.lib-hint { color: var(--muted); font-size: 13px; text-align: center; margin: 0; animation: fade-in 0.6s 0.6s both; }
+
+/* Regal: Rückwand, Bretter, Buchstützen */
+.shelf { display: flex; flex-direction: column; gap: 34px; }
+.shelf-row { position: relative; animation: rise-in 0.6s var(--ease-out) both; }
+.shelf-books {
+  position: relative; display: flex; align-items: flex-end; gap: 6px; padding: 26px 24px 0; min-height: 260px;
+  background: linear-gradient(180deg, color-mix(in srgb, var(--wall) 70%, transparent), var(--wall));
+  border-radius: 6px 6px 0 0; box-shadow: inset 0 14px 24px -14px var(--wall-shadow), inset 0 -10px 18px -12px var(--wall-shadow);
+}
+.plank {
+  height: 16px; border-radius: 2px 2px 4px 4px; position: relative; z-index: 1;
+  background: linear-gradient(180deg, var(--wood-hi) 0, var(--wood) 35%, var(--wood-lo) 100%);
+  box-shadow: 0 10px 18px -8px var(--wall-shadow), 0 2px 0 rgba(255, 255, 255, 0.18) inset;
+}
+.plank::after { content: ''; position: absolute; left: 0; right: 0; top: 100%; height: 22px; background: linear-gradient(180deg, var(--wall-shadow), transparent); opacity: 0.6; filter: blur(4px); }
+.bookend {
+  margin-left: 4px; width: 26px; height: 120px; flex-shrink: 0; align-self: flex-end;
+  background: linear-gradient(90deg, var(--wood-lo), var(--wood) 60%, var(--wood-hi));
+  clip-path: polygon(0 100%, 0 0, 30% 0, 30% 82%, 100% 82%, 100% 100%);
+  filter: drop-shadow(-2px 0 3px var(--wall-shadow));
+}
+
+/* Bücher */
+.book-slot { display: flex; align-items: flex-end; animation: book-in 0.55s var(--ease-out) both; }
+@keyframes book-in { from { opacity: 0; transform: translateY(14px); } }
+.book {
+  --spine: #1f5c52;
+  position: relative; flex-shrink: 0; border: 0; padding: 0; border-radius: 3px 3px 2px 2px; cursor: pointer;
+  background:
+    linear-gradient(90deg, rgba(0, 0, 0, 0.32) 0, rgba(255, 255, 255, 0.14) 14%, rgba(255, 255, 255, 0.05) 34%, rgba(0, 0, 0, 0) 60%, rgba(0, 0, 0, 0.14) 86%, rgba(0, 0, 0, 0.38) 100%),
+    linear-gradient(180deg, rgba(255, 255, 255, 0.06), rgba(0, 0, 0, 0.12)),
+    var(--spine);
+  box-shadow: 0 1px 0 rgba(255, 255, 255, 0.12) inset, 2px 0 3px -1px rgba(0, 0, 0, 0.25);
+  display: flex; flex-direction: column; align-items: center; justify-content: space-between; padding: 14px 0 12px;
+  transform-origin: bottom center;
+  transition: transform 0.35s var(--ease-out), box-shadow 0.35s var(--ease-out), filter 0.2s ease;
+}
+.book:hover { transform: translateY(-9px); box-shadow: 0 1px 0 rgba(255, 255, 255, 0.12) inset, 0 14px 22px -10px rgba(0, 0, 0, 0.45); }
+.book.selected { transform: translateY(-20px) rotate(-1.2deg); box-shadow: 0 1px 0 rgba(255, 255, 255, 0.12) inset, 0 22px 28px -12px rgba(0, 0, 0, 0.5); }
+.book:focus-visible { outline-offset: 4px; }
+.book:active { filter: brightness(0.95); }
+.book.opening { animation: book-open 0.45s var(--ease-in-out) forwards; z-index: 5; }
+@keyframes book-open {
+  40% { transform: translateY(-34px) rotate(-2deg); }
+  100% { transform: translateY(-46px) scale(1.12); opacity: 0; }
+}
+.library:has(.book.opening) .lib-main > :not(.shelf) { transition: opacity 0.3s ease; opacity: 0.2; }
+.book-title {
+  writing-mode: vertical-rl; transform: rotate(180deg); font-family: var(--serif); font-weight: 500; font-size: 14px; letter-spacing: 0.03em;
+  color: var(--cream); text-shadow: 0 1px 1px rgba(0, 0, 0, 0.35); max-height: 62%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; flex: 1; text-align: center; padding: 6px 0;
+}
+.book.long .book-title { white-space: normal; font-size: 12.5px; line-height: 1.15; max-height: 68%; max-width: calc(100% - 8px); text-overflow: clip; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; }
+.book-band { width: 100%; height: 9px; border-top: 1px solid var(--gilt); border-bottom: 1px solid var(--gilt); opacity: 0.85; flex-shrink: 0; }
+.book-band.top { margin-bottom: 8px; }
+.book-band.bottom { margin-top: 8px; }
+.deco1 .book-band { height: 4px; border-bottom: 0; }
+.deco2 .book-band { height: 14px; background: linear-gradient(180deg, transparent 45%, var(--gilt) 45%, var(--gilt) 55%, transparent 55%); }
+.book-mark { font-family: var(--serif); font-size: 12px; color: var(--gilt); margin-top: 6px; width: 20px; height: 20px; border: 1px solid var(--gilt); border-radius: 50%; display: inline-flex; align-items: center; justify-content: center; flex-shrink: 0; }
+.c0 { --spine: #1f5c52; } .c1 { --spine: #7a2e2e; } .c2 { --spine: #2c3e63; } .c3 { --spine: #8a6a2a; }
+.c4 { --spine: #4b3a5e; } .c5 { --spine: #3d5a3a; } .c6 { --spine: #6b4a3a; } .c7 { --spine: #2f4f5f; }
+
+/* Leerer Platz für ein neues Buch */
+.new-book-wrap { position: relative; display: flex; align-items: flex-end; animation: book-in 0.55s 0.3s var(--ease-out) both; }
+.new-book {
+  width: 56px; border: 1.5px dashed color-mix(in srgb, var(--muted) 60%, transparent); border-radius: 3px; background: transparent; color: var(--muted);
+  display: flex; align-items: center; justify-content: center; transition: border-color var(--dur) ease, color var(--dur) ease, transform 0.35s var(--ease-out), background-color var(--dur) ease;
+}
+.new-book:hover { border-color: var(--accent); color: var(--accent); transform: translateY(-6px); background: color-mix(in srgb, var(--accent-soft) 50%, transparent); }
+.new-book-pop {
+  position: absolute; bottom: calc(100% + 30px); left: 0; z-index: 10; width: 320px; background: var(--surface); border: 1px solid var(--line); border-radius: 12px;
+  box-shadow: var(--shadow-pop); padding: 14px; display: flex; flex-direction: column; gap: 10px; animation: pop-in var(--dur) var(--ease-out); transform-origin: bottom left;
+}
+
+/* Herausgezogenes Buch: was drinsteht */
+.lib-detail-area { min-height: 120px; }
+.book-details {
+  display: flex; gap: 24px; align-items: center; flex-wrap: wrap; justify-content: space-between;
+  background: var(--surface); border: 1px solid var(--line); border-radius: 14px; padding: 20px 24px; box-shadow: var(--shadow);
+  animation: rise-in 0.35s var(--ease-out);
+}
+.bd-main { display: flex; flex-direction: column; gap: 4px; min-width: 260px; flex: 1; }
+.bd-title { font-family: var(--serif); font-weight: 500; font-size: 26px; margin: 0; cursor: text; }
+.bd-title-input { font-family: var(--serif); font-weight: 500; font-size: 26px; border: 0; border-bottom: 1px solid var(--accent); background: transparent; padding: 0; outline: none; }
+.bd-meta { margin: 0; color: var(--text); font-size: 13px; }
+.bd-when { margin: 0; color: var(--muted); font-size: 12px; }
+.bd-actions { display: flex; gap: 8px; flex-wrap: wrap; }
+
+/* Papierkorb */
+.lib-trash { display: flex; flex-direction: column; gap: 10px; align-items: flex-start; }
+.trash-list { display: flex; flex-direction: column; gap: 6px; width: 100%; max-width: 720px; animation: kids-in var(--dur) var(--ease-out); }
+.trash-row { display: flex; align-items: center; gap: 12px; padding: 6px 8px; border-radius: 8px; background: var(--bg-sunken); }
+.trash-spine { width: 34px; height: 10px; border-radius: 2px; background: var(--spine); opacity: 0.7; flex-shrink: 0; }
+.trash-name { flex: 1; font-family: var(--serif); font-size: 15px; color: var(--muted); }
+
+@media (max-width: 640px) {
+  .lib-title { font-size: 30px; }
+  .shelf-books { padding: 20px 12px 0; }
+}
