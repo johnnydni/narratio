@@ -224,6 +224,16 @@ test('Bilder im Text und Zuordnung zu Szene und Lore', async ({ page }) => {
   await expect.poll(() => figure.locator('img').evaluate((img: HTMLImageElement) => img.naturalWidth)).toBeGreaterThan(0);
   if (shots) await page.screenshot({ path: `${shots}/10-bild-im-text.png` });
 
+  // Die Auswahl aus der Werkzeugleiste ist vollständig sichtbar und klickbar (nicht von der Leiste abgeschnitten).
+  await page.mouse.move(250, 250);
+  await page.getByRole('button', { name: /Bild/ }).click();
+  const picker = page.getByRole('dialog', { name: 'Medium wählen' });
+  const box = (await picker.boundingBox())!;
+  expect(box.height).toBeGreaterThan(80);
+  if (shots) await page.screenshot({ path: `${shots}/10b-bildauswahl.png` });
+  await picker.getByTitle('esse.png').click();
+  await expect(figure).toHaveCount(2);
+
   // Dasselbe Bild der Szene zuordnen
   await page.mouse.move(300, 300);
   await page.getByRole('button', { name: 'Medium zuordnen' }).click();

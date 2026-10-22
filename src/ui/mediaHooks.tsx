@@ -1,4 +1,5 @@
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useLayoutEffect, useRef, useState, type CSSProperties } from 'react';
+import { createPortal } from 'react-dom';
 import type { MediaMeta } from '../model/types';
 import { imageFor, importFile } from '../store/media';
 import type { ThumbSize } from '../store/blobs';
@@ -68,24 +69,41 @@ export async function importImages(project: Project, files: File[]): Promise<str
  * Auswahl eines Mediums aus der Bibliothek oder per Datei. Schließt nach der Wahl.
  * `kind` schränkt auf Bilder ein (für den Szenentext).
  */
-export function MediaPicker({ project, onPick, onClose, imagesOnly = false }: { project: Project; onPick: (hash: string) => void; onClose: () => void; imagesOnly?: boolean }) {
+/**
+ * Auswahl aus der Medienbibliothek. Mit `anchor` schwebt sie fest unter diesem Element über
+ * allem (für Leisten, die überlaufende Inhalte abschneiden), sonst sitzt sie im Fluss bzw. per CSS.
+ */
+export function MediaPicker({ project, onPick, onClose, imagesOnly = false, anchor }: { project: Project; onPick: (hash: string) => void; onClose: () => void; imagesOnly?: boolean; anchor?: HTMLElement | null }) {
   const media = useMedia().filter((m) => !m.trashedAt && (!imagesOnly || m.kind === 'image'));
   const fileRef = useRef<HTMLInputElement>(null);
   const boxRef = useRef<HTMLDivElement>(null);
+  const [fixed, setFixed] = useState<CSSProperties | undefined>();
+
+  useLayoutEffect(() => {
+    if (!anchor) return;
+    const place = () => {
+      const r = anchor.getBoundingClientRect();
+      setFixed({ position: 'fixed', top: r.bottom + 6, left: Math.max(8, Math.min(r.left, window.innerWidth - 308)) });
+    };
+    place();
+    window.addEventListener('resize', place);
+    return () => window.removeEventListener('resize', place);
+  }, [anchor]);
 
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => e.key === 'Escape' && onClose();
-    const onDown = (e: MouseEvent) => boxRef.current && !boxRef.current.contains(e.target as Node) && onClose();
+    // Klick auf den Auslöser schaltet selbst um; sonst würde er hier schließen und gleich wieder öffnen.
+    const onDown = (e: MouseEvent) => boxRef.current && !boxRef.current.contains(e.target as Node) && !anchor?.contains(e.target as Node) && onClose();
     window.addEventListener('keydown', onKey);
     window.addEventListener('mousedown', onDown);
     return () => {
       window.removeEventListener('keydown', onKey);
       window.removeEventListener('mousedown', onDown);
     };
-  }, [onClose]);
+  }, [onClose, anchor]);
 
-  return (
-    <div ref={boxRef} className="picker" role="dialog" aria-label="Medium wählen">
+  const box = (
+    <div ref={boxRef} className="picker" role="dialog" aria-label="Medium wählen" style={fixed}>
       <div className="picker-grid">
         {media.length === 0 && <span className="muted small">Noch keine Medien. Wähle eine Datei.</span>}
         {media.map((m) => (
@@ -112,4 +130,5 @@ export function MediaPicker({ project, onPick, onClose, imagesOnly = false }: { 
       />
     </div>
   );
+  return anchor ? createPortal(box, document.body) : box;
 }
