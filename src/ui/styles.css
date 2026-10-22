@@ -112,6 +112,7 @@ button { cursor: pointer; }
 .sync { display: flex; align-items: center; gap: 6px; color: var(--muted); font-size: 12px; white-space: nowrap; }
 .dot { width: 7px; height: 7px; border-radius: 50%; background: var(--accent); flex-shrink: 0; }
 
+.banner { background: var(--warn-soft); color: var(--warn); font-size: 13px; padding: 8px 16px; line-height: 1.5; }
 .body { flex: 1; min-height: 0; display: flex; }
 .main { flex: 1; min-width: 0; display: flex; }
 
@@ -403,3 +404,10 @@ pre.code { background: var(--bg-sunken); border: 1px solid var(--line); border-r
 @media (prefers-reduced-motion: reduce) {
   * { transition-duration: 0.01ms !important; }
 }
+
+/* Sicherungen */
+.backup-list { display: flex; flex-direction: column; gap: 2px; max-width: 680px; }
+.backup-row { display: flex; align-items: center; gap: 10px; font-size: 12px; padding: 4px 0; border-bottom: 1px solid var(--line-soft); }
+.backup-row .when { min-width: 150px; }
+.backup-row .why { color: var(--muted); flex: 1; }
+.confirm { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; background: var(--warn-soft); border-radius: var(--radius); padding: 10px 12px; font-size: 13px; max-width: 680px; }

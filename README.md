@@ -11,9 +11,11 @@ Schreibwerkzeug für Spiele-Narrative: Manuskript, Dialogbäume mit Varianten un
 - **Vorschau mit Spielstand:** zeigt im Graph und im Inspector, welche Variante greift und warum.
 - **Weltzustand:** zentrale Variablen mit Export-Schlüsseln, Verwendungsnachweis, Spielstände.
 - **Lore:** Einträge mit eigenen Feldern, stabiler Export-ID und „Verwendet in“.
-- **Prüfung und Export:** fehlende Fallbacks, tote Verweise, unbekannte Variablen, Sackgassen, unerreichbare Nodes; Export als Unreal-JSON (Bedingungen als Ausdrucksbaum) und Lore als CSV für Data Tables; vollständige Sicherung als `.narratio`-Datei.
+- **Prüfung und Export:** fehlende Fallbacks, tote Verweise, unbekannte Variablen, Sackgassen, unerreichbare Nodes; Export als Unreal-JSON (Bedingungen als Ausdrucksbaum) und Lore als CSV für Data Tables.
+- **Sicherung:** offenes ZIP, lesbar ohne narratio (Szenen und Lore als Markdown, vollständiger Stand als `narratio.json`). Automatisch alle 15 Minuten im Browser, 30 Tage aufbewahrt; in Chrome und Edge zusätzlich täglich in einen frei wählbaren Ordner. Wiederherstellen ersetzt den Stand und sichert vorher den alten. Alte `.narratio`-Dateien lassen sich weiter einlesen.
 - **Eintauchen:** wer zügig schreibt, dem blendet die Oberfläche aus und eine Klangwelt ein (Regen, Kaminfeuer, Wind, Klangteppich, Nacht), dazu Schreibmaschinen-Anschläge. Alles per Web Audio erzeugt, ohne Dateien. Mausbewegung oder Esc holt die Oberfläche zurück.
-- **Speicherung und Sync:** Yjs (CRDT) in IndexedDB, live zwischen Fenstern per BroadcastChannel. Gleichzeitiges Schreiben in zwei Fenstern wird ohne Verlust zusammengeführt.
+- **Speicherung und Sync:** Yjs (CRDT) in IndexedDB, live zwischen Fenstern per BroadcastChannel. Gleichzeitiges Schreiben in zwei Fenstern wird ohne Verlust zusammengeführt. narratio fordert dauerhaften Speicher an und warnt in der Kopfzeile, wenn der Browser ablehnt.
+- **Schema-Migrationen:** versioniert und idempotent (`src/store/migrate.ts`); vor jeder Migration entsteht automatisch eine Sicherung. Ein Projekt aus einer neueren Version wird nicht angefasst.
 
 ## Was noch fehlt (nächste Phasen)
 

@@ -1,8 +1,11 @@
 import * as Y from 'yjs';
 import { IndexeddbPersistence } from 'y-indexeddb';
-import { Project } from './project';
+import { Project, SCHEMA_VERSION } from './project';
 import { TabSync } from './tabSync';
 import { seedDemo } from './seed';
+import { migrate, schemaOf, type MigrationResult } from './migrate';
+import { requestPersistentStorage, type StorageStatus } from './storage';
+import { saveLocalBackup, startAutoBackup } from './autoBackup';
 
 /**
  * Öffnet ein Projekt: lädt es aus IndexedDB, verbindet die Fenster und legt beim allerersten
@@ -12,6 +15,8 @@ export interface Session {
   project: Project;
   sync: TabSync;
   persistence: IndexeddbPersistence;
+  storage: StorageStatus;
+  migration: MigrationResult;
   destroy(): void;
 }
 
@@ -44,14 +49,21 @@ export async function openSession(): Promise<Session> {
   await persistence.whenSynced;
 
   // Dauerhaften Speicher anfordern, damit der Browser die Daten nicht bei Platzmangel räumt.
-  void navigator.storage?.persist?.().catch(() => undefined);
+  const storage = await requestPersistentStorage().catch((): StorageStatus => ({ persisted: null }));
 
-  // Seed nur einmal, auch wenn zwei Fenster gleichzeitig starten.
-  await withLock(`${DB_NAME}-seed`, async () => {
+  // Seed und Migration nur einmal, auch wenn zwei Fenster gleichzeitig starten.
+  const migration = await withLock(`${DB_NAME}-seed`, async () => {
     sync.requestSync();
     await new Promise((r) => setTimeout(r, 120));
     if (!project.meta.get('seeded')) seedDemo(project);
+    if (schemaOf(project) < SCHEMA_VERSION) {
+      // Vor jeder Migration den alten Stand sichern; scheitert das, wird nicht migriert.
+      await saveLocalBackup(project, 'vor-migration');
+    }
+    return migrate(project);
   });
+
+  const stopAutoBackup = migration.tooNew ? () => undefined : startAutoBackup(project);
 
   // Beim Schließen oder Neuladen abmelden, damit andere Fenster nicht auf Phantome warten.
   const onHide = () => sync.destroy();
@@ -61,7 +73,10 @@ export async function openSession(): Promise<Session> {
     project,
     sync,
     persistence,
+    storage,
+    migration,
     destroy() {
+      stopAutoBackup();
       window.removeEventListener('pagehide', onHide);
       sync.destroy();
       void persistence.destroy();
