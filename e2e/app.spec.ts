@@ -246,7 +246,9 @@ test('Bilder im Text und Zuordnung zu Szene und Lore', async ({ page }) => {
   await page.getByRole('dialog', { name: 'Medium wählen' }).getByTitle('esse.png').click();
   await expect(page.getByTestId('lore-media').locator('figure')).toHaveCount(1);
 
-  // Medienansicht zeigt, wo das Bild verwendet wird; bleibt nach Neuladen erhalten
+  // Medienansicht zeigt, wo das Bild verwendet wird; bleibt nach Neuladen erhalten.
+  // Kurz warten: IndexedDB schreibt asynchron, ein sofortiges Neuladen kann die letzte Änderung abbrechen.
+  await page.waitForTimeout(300);
   await page.reload();
   await page.getByRole('button', { name: 'Medien', exact: true }).click();
   await page.getByTitle('esse.png').click();
@@ -254,4 +256,39 @@ test('Bilder im Text und Zuordnung zu Szene und Lore', async ({ page }) => {
   await expect(dialog).toContainText('im Text');
   await expect(dialog).toContainText('Aschenklinge');
   if (shots) await page.screenshot({ path: `${shots}/11-verwendet-in.png` });
+});
+
+test('Startbildschirm, Schnellsuche und Meldung mit Rückgängig', async ({ page }) => {
+  await page.goto('/');
+  await expect(page.locator('#splash')).toBeVisible();
+  await expect(page.locator('#splash')).toHaveCount(0, { timeout: 5000 });
+  await expect(page.locator('.ProseMirror')).toContainText('Der Wind trug den Geruch');
+
+  // Strg/Cmd+K öffnet die Schnellsuche, Tippen filtert, Enter springt
+  await page.keyboard.press('ControlOrMeta+k');
+  const palette = page.getByRole('dialog', { name: 'Schnellsuche' });
+  await expect(palette).toBeVisible();
+  await expect(palette.locator('.palette-group').first()).toHaveText('Zuletzt geöffnet');
+  await page.keyboard.type('zollner');
+  await expect(palette.locator('.palette-item').first()).toContainText('Der Zöllner');
+  if (shots) await page.screenshot({ path: `${shots}/12-schnellsuche.png` });
+  await page.keyboard.press('Enter');
+  await expect(palette).toHaveCount(0);
+  await expect(page.locator('.crumbs .path')).toContainText('Der Zöllner');
+
+  // Befehl über die Schnellsuche
+  await page.getByRole('button', { name: 'Schnellsuche' }).click();
+  await page.keyboard.type('medien');
+  await page.keyboard.press('Enter');
+  await expect(page.getByRole('heading', { name: 'Medien' })).toBeVisible();
+
+  // Papierkorb mit Rückgängig
+  const bild = await makePng(page, 400, 300, '#7a6a5a');
+  await page.getByTestId('media-file').setInputFiles({ name: 'probe.png', mimeType: 'image/png', buffer: bild });
+  await page.getByTitle('probe.png').click();
+  await page.getByRole('button', { name: 'In den Papierkorb' }).click();
+  await expect(page.getByTestId('toast')).toContainText('liegt im Papierkorb');
+  await expect(page.getByTestId('media-grid')).toHaveCount(0);
+  await page.getByRole('button', { name: 'Rückgängig' }).click();
+  await expect(page.getByTestId('media-grid').locator('img')).toHaveCount(1);
 });

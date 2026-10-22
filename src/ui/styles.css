@@ -26,6 +26,14 @@
   --sans: 'Inter Variable', 'Inter', system-ui, -apple-system, 'Segoe UI', sans-serif;
   --mono: ui-monospace, 'SF Mono', Menlo, Consolas, monospace;
   --radius: 8px;
+  /* Bewegung: kurz und weich. Eine Kurve für Erscheinen, eine für Zustandswechsel. */
+  --ease-out: cubic-bezier(0.2, 0.7, 0.2, 1);
+  --ease-in-out: cubic-bezier(0.6, 0, 0.2, 1);
+  --dur-fast: 120ms;
+  --dur: 200ms;
+  --dur-slow: 320ms;
+  --shadow-pop: 0 12px 36px rgba(26, 26, 28, 0.14), 0 2px 6px rgba(26, 26, 28, 0.06);
+  --scrim: rgba(20, 20, 22, 0.18);
   color-scheme: light;
 }
 
@@ -52,6 +60,8 @@
     --ref-item: #b9a8ef;
     --canvas-dot: #2a2a2f;
     --shadow: 0 6px 24px rgba(0, 0, 0, 0.4);
+    --shadow-pop: 0 16px 44px rgba(0, 0, 0, 0.55), 0 2px 8px rgba(0, 0, 0, 0.35);
+    --scrim: rgba(0, 0, 0, 0.45);
     color-scheme: dark;
   }
 }
@@ -78,6 +88,8 @@
   --ref-item: #b9a8ef;
   --canvas-dot: #2a2a2f;
   --shadow: 0 6px 24px rgba(0, 0, 0, 0.4);
+  --shadow-pop: 0 16px 44px rgba(0, 0, 0, 0.55), 0 2px 8px rgba(0, 0, 0, 0.35);
+  --scrim: rgba(0, 0, 0, 0.45);
   color-scheme: dark;
 }
 
@@ -402,7 +414,7 @@ pre.code { background: var(--bg-sunken); border: 1px solid var(--line); border-r
   .fields { grid-template-columns: 1fr; }
 }
 @media (prefers-reduced-motion: reduce) {
-  * { transition-duration: 0.01ms !important; }
+  *, *::before, *::after { transition-duration: 0.01ms !important; animation-duration: 0.01ms !important; animation-delay: 0ms !important; }
 }
 
 /* Sicherungen */
@@ -467,3 +479,115 @@ pre.code { background: var(--bg-sunken); border: 1px solid var(--line); border-r
 .lore-media-item .thumb { width: 160px; height: 120px; border-radius: var(--radius); }
 .lore-media-item figcaption { display: flex; align-items: center; gap: 4px; }
 .lore-media-item figcaption span { flex: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+
+/* ---------- Bewegung und Rückmeldung ---------- */
+
+/* Zustandswechsel weich: Hover, Auswahl, Fokus */
+.btn, .icon-btn, .tool, .row, .ref-row, .use, .scape, .tab, .media-row, .suggest button, .issue,
+.side-media-add, .picker-item, .palette-item, .ref, .chip, .media-drop {
+  transition: background-color var(--dur-fast) ease, border-color var(--dur-fast) ease, color var(--dur-fast) ease,
+    box-shadow var(--dur) var(--ease-out), transform var(--dur-fast) var(--ease-out), opacity var(--dur) ease;
+}
+.input, .select, .textarea, .field-row .val, .mini-wrap .ProseMirror.mini {
+  transition: border-color var(--dur-fast) ease, box-shadow var(--dur) var(--ease-out), background-color var(--dur-fast) ease;
+}
+.input:focus, .select:focus, .textarea:focus, .mini-wrap .ProseMirror.mini:focus { box-shadow: 0 0 0 3px var(--accent-soft); }
+.input.bare:focus { box-shadow: none; }
+
+/* Gedrückt: kurzes Nachgeben, wie eine echte Taste */
+.btn:active:not(:disabled), .icon-btn:active, .tool:active, .scape:active, .side-media-add:active, .tab:active { transform: scale(0.96); }
+.btn.primary:hover { filter: brightness(1.06); }
+.btn:disabled { opacity: 0.5; cursor: default; }
+.ref:hover { filter: brightness(0.96); }
+.scape:hover { border-color: var(--muted); }
+.scape.on:hover { border-color: var(--accent); }
+
+/* Binder: Pfeil dreht statt zu springen, Zeilen gleiten an ihren Platz */
+.row .twisty .chev { display: inline-block; transition: transform var(--dur) var(--ease-out); }
+.row .twisty .chev.closed { transform: rotate(-90deg); }
+.binder-kids { animation: kids-in var(--dur) var(--ease-out); }
+@keyframes kids-in { from { opacity: 0; transform: translateY(-4px); } }
+
+/* Ansichtswechsel: Inhalt hebt sich kurz an */
+.view-anim { flex: 1; min-width: 0; display: flex; animation: view-in var(--dur-slow) var(--ease-out); }
+@keyframes view-in { from { opacity: 0; transform: translateY(6px); } }
+
+/* Programmstart nach dem Startbildschirm */
+.app-ready .app .topbar { animation: rise-in 0.5s var(--ease-out) both; }
+.app-ready .app .binder { animation: rise-in 0.5s 0.06s var(--ease-out) both; }
+.app-ready .app .main { animation: rise-in 0.55s 0.12s var(--ease-out) both; }
+@keyframes rise-in { from { opacity: 0; transform: translateY(8px); } }
+
+/* Aufklappmenüs und Karten: erscheinen aus ihrem Auslöser heraus */
+.picker, .ambient-pop, .suggest, .palette { animation: pop-in var(--dur) var(--ease-out); transform-origin: top center; box-shadow: var(--shadow-pop); }
+.ambient-pop { transform-origin: top right; }
+.hovercard { animation: card-in 160ms var(--ease-out); }
+.side .picker { box-shadow: none; animation: kids-in var(--dur) var(--ease-out); }
+[data-state='closing'] { animation: pop-out 140ms ease forwards !important; pointer-events: none; }
+@keyframes pop-in { from { opacity: 0; transform: translateY(-4px) scale(0.97); } }
+@keyframes pop-out { to { opacity: 0; transform: translateY(-4px) scale(0.97); } }
+@keyframes card-in { from { opacity: 0; transform: translateY(4px); } }
+
+/* Medien: Kacheln heben sich, Betrachter blendet auf */
+.media-thumb { transition: transform var(--dur) var(--ease-out), box-shadow var(--dur) var(--ease-out), outline-color var(--dur-fast) ease; }
+.media-thumb img { transition: transform var(--dur-slow) var(--ease-out); }
+.media-tile:hover .media-thumb { transform: translateY(-2px); box-shadow: var(--shadow); }
+.media-tile:hover .media-thumb img { transform: scale(1.03); }
+.media-tile:active .media-thumb { transform: scale(0.98); }
+.media-tile:hover .media-thumb, .media-tile:focus-visible .media-thumb { outline-color: var(--accent); }
+.viewer { animation: fade-in var(--dur) ease; }
+.viewer[data-state='closing'] { animation: fade-out 160ms ease forwards !important; }
+.viewer-stage img { animation: zoom-in var(--dur-slow) var(--ease-out); }
+.media-grid > * { animation: kids-in var(--dur-slow) var(--ease-out) both; }
+.thumb img, .media-thumb img, .scene-figure-img img { animation: img-in var(--dur-slow) ease; }
+@keyframes fade-in { from { opacity: 0; } }
+@keyframes fade-out { to { opacity: 0; } }
+@keyframes zoom-in { from { opacity: 0; transform: scale(0.98); } }
+@keyframes img-in { from { opacity: 0; } }
+
+/* Dialoggraph: Knoten reagieren auf die Maus */
+.dnode { transition: box-shadow var(--dur) var(--ease-out), border-color var(--dur-fast) ease; }
+.dnode:hover { box-shadow: var(--shadow); }
+.react-flow__edge-path { transition: stroke var(--dur-fast) ease; }
+
+/* Designwechsel: Farben gleiten, statt umzuspringen (nur während des Wechsels aktiv) */
+.theme-switching, .theme-switching *, .theme-switching *::before, .theme-switching *::after {
+  transition: background-color 0.35s ease, color 0.35s ease, border-color 0.35s ease, fill 0.35s ease !important;
+}
+
+/* Meldungen unten in der Mitte */
+.toasts { position: fixed; left: 50%; bottom: 24px; transform: translateX(-50%); z-index: 90; display: flex; flex-direction: column; gap: 8px; align-items: center; pointer-events: none; }
+.toast {
+  pointer-events: auto; display: flex; align-items: center; gap: 12px; min-height: 40px; padding: 8px 10px 8px 14px; border-radius: 10px;
+  background: var(--text); color: var(--bg); box-shadow: var(--shadow-pop); font-size: 13px; max-width: min(560px, calc(100vw - 32px));
+  animation: toast-in var(--dur-slow) var(--ease-out);
+}
+.toast[data-state='closing'] { animation: toast-out 180ms ease forwards; }
+.toast .toast-action { border: 0; background: transparent; color: var(--accent-soft); font-weight: 600; padding: 4px 8px; border-radius: 6px; }
+:root[data-theme='dark'] .toast .toast-action { color: var(--accent); }
+@media (prefers-color-scheme: dark) { :root:not([data-theme='light']) .toast .toast-action { color: var(--accent); } }
+.toast .toast-action:hover { background: color-mix(in srgb, var(--bg) 14%, transparent); }
+@keyframes toast-in { from { opacity: 0; transform: translateY(12px) scale(0.98); } }
+@keyframes toast-out { to { opacity: 0; transform: translateY(8px); } }
+
+/* Schnellsuche (Strg/Cmd+K) */
+.palette-backdrop { position: fixed; inset: 0; z-index: 80; background: var(--scrim); display: flex; justify-content: center; align-items: flex-start; padding-top: 14vh; animation: fade-in var(--dur) ease; }
+.palette-backdrop[data-state='closing'] { animation: fade-out 140ms ease forwards; }
+.palette { width: min(600px, calc(100vw - 32px)); background: var(--surface); border: 1px solid var(--line); border-radius: 14px; overflow: hidden; display: flex; flex-direction: column; }
+.palette-input { border: 0; border-bottom: 1px solid var(--line); background: transparent; font-size: 16px; padding: 16px 18px; outline: none; }
+.palette-list { max-height: min(420px, 56vh); overflow-y: auto; padding: 6px; }
+.palette-group { font-size: 11px; letter-spacing: 0.08em; text-transform: uppercase; color: var(--muted); padding: 10px 10px 4px; }
+.palette-item { width: 100%; display: flex; align-items: center; gap: 10px; border: 0; background: transparent; border-radius: 8px; padding: 8px 10px; text-align: left; color: var(--text); }
+.palette-item .pi-icon { width: 20px; display: inline-flex; justify-content: center; color: var(--muted); flex-shrink: 0; }
+.palette-item .pi-title { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.palette-item .pi-hint { color: var(--muted); font-size: 12px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 45%; }
+.palette-item.sel { background: var(--accent-soft); }
+.palette-item.sel .pi-icon { color: var(--accent); }
+.palette-item mark { background: transparent; color: var(--accent); font-weight: 600; }
+.palette-empty { padding: 18px; color: var(--muted); text-align: center; }
+.palette-foot { display: flex; gap: 14px; padding: 8px 14px; border-top: 1px solid var(--line-soft); color: var(--muted); font-size: 11px; }
+kbd { font-family: var(--sans); font-size: 11px; border: 1px solid var(--line); border-bottom-width: 2px; border-radius: 4px; padding: 0 5px; background: var(--bg); color: var(--muted); }
+.search-btn { display: inline-flex; align-items: center; gap: 8px; height: 30px; padding: 0 8px 0 10px; border: 1px solid var(--line); border-radius: 8px; background: var(--surface); color: var(--muted); font-size: 12px; min-width: 200px; }
+.search-btn:hover { border-color: var(--muted); color: var(--text); }
+.search-btn kbd { margin-left: auto; }
+@media (max-width: 900px) { .search-btn { min-width: 0; } .search-btn .sb-label, .search-btn kbd { display: none; } }

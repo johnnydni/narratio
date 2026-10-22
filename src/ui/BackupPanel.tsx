@@ -19,6 +19,7 @@ import {
   type LocalBackupMeta,
 } from '../store/autoBackup';
 import { formatBytes } from '../store/storage';
+import { useToast } from './motion';
 
 export function download(name: string, data: BlobPart, type: string) {
   const url = URL.createObjectURL(new Blob([data], { type }));
@@ -52,6 +53,7 @@ export function BackupPanel() {
   const [folder, setFolder] = useState<FolderState>({ kind: 'none' });
   const [pending, setPending] = useState<Pending | null>(null);
   const [message, setMessage] = useState<string | null>(null);
+  const toast = useToast();
 
   const refresh = useCallback(async () => {
     setLocal(await listLocalBackups().catch(() => []));
@@ -115,6 +117,7 @@ export function BackupPanel() {
     const { zip, missing } = await createBackupZipWithMedia(project, getOriginal);
     download(backupFileName(project), zip, 'application/zip');
     setMessage(missing.length ? `Heruntergeladen. ${missing.length} Mediendatei(en) fehlen auf diesem Gerät: ${missing.join(', ')}.` : null);
+    if (!missing.length) toast({ text: 'Sicherung heruntergeladen.' });
   };
 
   const downloadLocal = async (b: LocalBackupMeta) => {

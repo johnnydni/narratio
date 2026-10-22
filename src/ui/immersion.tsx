@@ -2,6 +2,7 @@ import { createContext, useCallback, useContext, useEffect, useMemo, useRef, use
 import { audio, SCAPES, type ScapeId } from '../audio/engine';
 import { useLocalSetting } from './state';
 import { Icon } from './icons';
+import { usePresence } from './motion';
 
 /**
  * Eintauchen beim Schreiben: Wer zügig schreibt, dem blendet narratio langsam die Oberfläche
@@ -55,6 +56,12 @@ export function ImmersionProvider({ children }: { children: ReactNode }) {
   useEffect(() => audio.setScape(settings.scape), [settings.scape]);
   useEffect(() => audio.setAmbientVolume(settings.ambientVolume), [settings.ambientVolume]);
   useEffect(() => audio.setKeysVolume(settings.keysVolume), [settings.keysVolume]);
+  // Anschläge vorrechnen, sobald der Browser Luft hat, damit schon der erste Tastendruck klingt.
+  useEffect(() => {
+    if (!settings.keys) return;
+    const idle = window.requestIdleCallback ?? ((fn: () => void) => window.setTimeout(fn, 600));
+    idle(() => void audio.preloadKeys());
+  }, [settings.keys]);
 
   const leave = useCallback(() => {
     if (!immersedRef.current) return;
@@ -75,7 +82,7 @@ export function ImmersionProvider({ children }: { children: ReactNode }) {
     const kind =
       e.key === 'Enter' ? 'enter' : e.key === ' ' ? 'space' : e.key === 'Backspace' || e.key === 'Delete' ? 'back' : e.key.length === 1 ? 'char' : null;
     if (!kind) return;
-    if (s.keys) audio.key(kind, s.keysVolume);
+    if (s.keys) audio.key(kind, s.keysVolume, e.key);
     if (!s.auto || immersedRef.current) return;
     const now = performance.now();
     stamps.current = stamps.current.filter((t) => now - t < WINDOW_MS);
@@ -126,6 +133,7 @@ export function ImmersionProvider({ children }: { children: ReactNode }) {
 export function AmbientPicker() {
   const { settings, update, previewing, togglePreview } = useImmersion();
   const [open, setOpen] = useState(false);
+  const pop = usePresence(open);
   const ref = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
@@ -142,8 +150,8 @@ export function AmbientPicker() {
       <button type="button" className="icon-btn" aria-label="Klang beim Schreiben" aria-expanded={open} aria-pressed={previewing} onClick={() => setOpen(!open)}>
         <Icon name="headphones" />
       </button>
-      {open && (
-        <div className="ambient-pop" role="dialog" aria-label="Klang beim Schreiben">
+      {pop.mounted && (
+        <div className="ambient-pop" role="dialog" aria-label="Klang beim Schreiben" data-state={pop.state}>
           <div className="toggle-row">
             <span style={{ fontWeight: 600 }}>Klang beim Schreiben</span>
             <button type="button" className={`btn small ${previewing ? 'primary' : ''}`} onClick={togglePreview} disabled={!settings.scape}>

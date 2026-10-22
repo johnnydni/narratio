@@ -4,9 +4,54 @@
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
     <meta name="color-scheme" content="light dark" />
+    <meta name="theme-color" content="#f6f6f3" media="(prefers-color-scheme: light)" />
+    <meta name="theme-color" content="#121214" media="(prefers-color-scheme: dark)" />
+    <meta name="description" content="narratio – Schreibwerkzeug für Spiele-Narrative" />
     <title>narratio</title>
+    <link rel="icon" type="image/svg+xml" href="/icon.svg" />
+    <link rel="apple-touch-icon" href="/icon-192.png" />
+    <link rel="manifest" href="/manifest.webmanifest" />
+    <script>
+      // Design vor dem ersten Bild setzen: kein Aufblitzen in der falschen Farbe.
+      try {
+        var t = JSON.parse(localStorage.getItem('narratio:theme') || '"system"');
+        if (t === 'light' || t === 'dark') document.documentElement.setAttribute('data-theme', t);
+      } catch (e) {}
+    </script>
+    <style>
+      /* Startbildschirm: steht, bevor das Programm geladen ist. Farben wie im Designsystem. */
+      #splash {
+        --sp-bg: #f6f6f3; --sp-accent: #17695c; --sp-muted: #66666b; --sp-line: #e3e3de;
+        position: fixed; inset: 0; z-index: 1000; display: flex; flex-direction: column; align-items: center; justify-content: center;
+        gap: 14px; background: var(--sp-bg); transition: opacity 0.5s cubic-bezier(0.2, 0.7, 0.2, 1), transform 0.5s cubic-bezier(0.2, 0.7, 0.2, 1);
+      }
+      @media (prefers-color-scheme: dark) { :root:not([data-theme='light']) #splash { --sp-bg: #121214; --sp-accent: #62c4af; --sp-muted: #9b9ba3; --sp-line: #2a2a2f; } }
+      :root[data-theme='dark'] #splash { --sp-bg: #121214; --sp-accent: #62c4af; --sp-muted: #9b9ba3; --sp-line: #2a2a2f; }
+      :root[data-theme='light'] #splash { --sp-bg: #f6f6f3; --sp-accent: #17695c; --sp-muted: #66666b; --sp-line: #e3e3de; }
+      html, body { background: #f6f6f3; }
+      @media (prefers-color-scheme: dark) { :root:not([data-theme='light']), :root:not([data-theme='light']) body { background: #121214; } }
+      :root[data-theme='dark'], :root[data-theme='dark'] body { background: #121214; }
+      #splash .sp-mark { font-family: 'Literata', Georgia, 'Times New Roman', serif; font-weight: 500; font-size: 44px; letter-spacing: 0.01em; color: var(--sp-accent); display: flex; }
+      #splash .sp-mark span { display: inline-block; opacity: 0; transform: translateY(8px); filter: blur(4px); animation: sp-in 0.7s cubic-bezier(0.2, 0.7, 0.2, 1) forwards; }
+      #splash .sp-rule { width: 160px; height: 1px; background: var(--sp-line); position: relative; overflow: hidden; }
+      #splash .sp-rule::after { content: ''; position: absolute; inset: 0; background: var(--sp-accent); transform: scaleX(0); transform-origin: left; animation: sp-draw 0.9s 0.45s cubic-bezier(0.6, 0, 0.2, 1) forwards; }
+      #splash .sp-tag { font-family: system-ui, -apple-system, 'Segoe UI', sans-serif; font-size: 12px; letter-spacing: 0.14em; text-transform: uppercase; color: var(--sp-muted); opacity: 0; animation: sp-fade 0.5s 0.6s ease forwards; }
+      #splash.out { opacity: 0; transform: scale(1.015); pointer-events: none; }
+      @keyframes sp-in { to { opacity: 1; transform: none; filter: none; } }
+      @keyframes sp-draw { to { transform: scaleX(1); } }
+      @keyframes sp-fade { to { opacity: 1; } }
+      @media (prefers-reduced-motion: reduce) {
+        #splash .sp-mark span, #splash .sp-tag { animation: none; opacity: 1; transform: none; filter: none; }
+        #splash .sp-rule::after { animation: none; transform: none; }
+      }
+    </style>
   </head>
   <body>
+    <div id="splash" aria-hidden="true">
+      <div class="sp-mark"><span style="animation-delay: 0s">n</span><span style="animation-delay: 0.05s">a</span><span style="animation-delay: 0.1s">r</span><span style="animation-delay: 0.15s">r</span><span style="animation-delay: 0.2s">a</span><span style="animation-delay: 0.25s">t</span><span style="animation-delay: 0.3s">i</span><span style="animation-delay: 0.35s">o</span></div>
+      <div class="sp-rule"></div>
+      <div class="sp-tag">Erzählen für Spiele</div>
+    </div>
     <div id="root"></div>
     <script type="module" src="/src/main.tsx"></script>
   </body>
