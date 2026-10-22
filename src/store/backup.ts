@@ -1,6 +1,6 @@
 import * as Y from 'yjs';
 import { strFromU8, strToU8, unzipSync, zipSync, type Zippable } from 'fflate';
-import type { DialogEdge, DialogGraph, DialogNode, Id, Item, Profile, WorldVar } from '../model/types';
+import type { DialogEdge, DialogGraph, DialogNode, Id, Item, MediaMeta, Profile, WorldVar } from '../model/types';
 import { LORE_KINDS } from '../model/types';
 import { Project, SCHEMA_VERSION } from './project';
 import { schemaOf } from './migrate';
@@ -12,6 +12,7 @@ import { schemaOf } from './migrate';
  *   narratio.json        der vollständige Stand, aus dem wiederhergestellt wird
  *   Manuskript/…/*.md    Szenen als Markdown, in der Ordnerstruktur des Binders (nur zum Lesen)
  *   Lore/<Art>/*.md      Lore-Einträge mit Feldern als Markdown (nur zum Lesen)
+ *   Medien/*             Originaldateien, unverändert (nur in Sicherungen „mit Medien“)
  *   LIESMICH.txt         was wo liegt
  *
  * Szenentexte stehen in narratio.json als Baum im ProseMirror-Stil ({type, attrs, content, text,
@@ -41,6 +42,8 @@ export interface BackupData {
   profiles: Profile[];
   dialogs: Record<Id, DialogGraph>;
   scenes: Record<Id, SceneNode[]>;
+  /** Ab Schema 2. Nur Metadaten; die Dateien liegen unter Medien/ (siehe mediaPath). */
+  media?: MediaMeta[];
 }
 
 /* ------------------------------------------------------------------ */
@@ -145,6 +148,7 @@ export function toBackupData(project: Project, now = new Date()): BackupData {
     profiles: snap.profiles,
     dialogs: snap.dialogs,
     scenes,
+    media: project.listMedia(),
   };
 }
 
@@ -178,6 +182,7 @@ export function restoreBackupData(project: Project, data: BackupData): void {
     project.worldVars.clear();
     project.profiles.clear();
     project.dialogs.clear();
+    project.media.clear();
     // Szenentexte sind Top-Level-Typen und lassen sich nicht entfernen, nur leeren.
     for (const name of doc.share.keys()) {
       if (name.startsWith('scene:')) {
@@ -208,6 +213,7 @@ export function restoreBackupData(project: Project, data: BackupData): void {
       for (const e of graph.edges) edges.set(e.id, e);
     }
     for (const [sceneId, nodes] of Object.entries(data.scenes)) writeScene(project.sceneFragment(sceneId), nodes);
+    for (const m of data.media ?? []) project.media.set(m.hash, m);
   });
 }
 
@@ -311,11 +317,21 @@ narratio.json   Vollständiger Projektstand (Binder, Szenen, Lore, Weltzustand, 
                 Baum im TipTap/ProseMirror-Stil.
 Manuskript/     Szenen als Markdown in der Ordnerstruktur des Binders, zum Lesen ohne narratio.
 Lore/           Lore-Einträge mit ihren Feldern als Markdown.
+Medien/         Bilder und PDFs als unveränderte Originale (nur in Sicherungen mit Medien).
+                Der Name beginnt mit den ersten 8 Zeichen des SHA-256 der Datei.
 
 Die Markdown-Dateien werden beim Wiederherstellen nicht gelesen.
 `;
 
-export function backupFiles(data: BackupData): Zippable {
+/** Pfad eines Mediums im ZIP; eindeutig über den Hash-Anfang, lesbar über den Dateinamen. */
+export function mediaPath(m: MediaMeta): string {
+  const dot = m.name.lastIndexOf('.');
+  const base = dot > 0 ? m.name.slice(0, dot) : m.name;
+  const ext = dot > 0 ? m.name.slice(dot + 1).toLowerCase().replace(/[^a-z0-9]/g, '') : 'bin';
+  return `Medien/${m.hash.slice(0, 8)} ${safeName(base).slice(0, 60)}.${ext || 'bin'}`;
+}
+
+export function backupFiles(data: BackupData, mediaFiles: Map<string, Uint8Array> = new Map()): Zippable {
   const byId = new Map(data.items.map((i) => [i.id, i]));
   const loreName = (id: string) => byId.get(id)?.title ?? '@?';
   const files: Zippable = {
@@ -352,18 +368,52 @@ export function backupFiles(data: BackupData): Zippable {
       files[unique(`Lore/${kind}/${safeName(item.title)}.md`)] = strToU8(loreToMarkdown(item));
     }
   }
+  for (const m of data.media ?? []) {
+    const bytes = mediaFiles.get(m.hash);
+    // Bilder und PDFs sind schon komprimiert; nochmal packen kostet nur Zeit.
+    if (bytes) files[mediaPath(m)] = [bytes, { level: 0 }];
+  }
   return files;
 }
 
+/** Sicherung ohne Mediendateien (Metadaten sind enthalten). Synchron, für die automatische Sicherung. */
 export function createBackupZip(project: Project, now = new Date()): Uint8Array<ArrayBuffer> {
   // mtime fest auf den Sicherungszeitpunkt, damit gleiche Stände gleiche Dateien ergeben.
   return zipSync(backupFiles(toBackupData(project, now)), { level: 6, mtime: now }) as Uint8Array<ArrayBuffer>;
 }
 
+/** Sicherung mit allen Originaldateien. Fehlt eine Datei im Blob-Speicher, fehlt sie im ZIP. */
+export async function createBackupZipWithMedia(
+  project: Project,
+  readOriginal: (hash: string) => Promise<Blob | undefined>,
+  now = new Date(),
+): Promise<{ zip: Uint8Array<ArrayBuffer>; missing: string[] }> {
+  const data = toBackupData(project, now);
+  const files = new Map<string, Uint8Array>();
+  const missing: string[] = [];
+  for (const m of data.media ?? []) {
+    const blob = await readOriginal(m.hash);
+    if (blob) files.set(m.hash, new Uint8Array(await blob.arrayBuffer()));
+    else missing.push(m.name);
+  }
+  const zip = zipSync(backupFiles(data, files), { level: 6, mtime: now }) as Uint8Array<ArrayBuffer>;
+  return { zip, missing };
+}
+
+export interface BackupContents {
+  data: BackupData;
+  /** hash → Datei, nur für Medien, die im ZIP liegen. */
+  media: Map<string, Uint8Array>;
+}
+
 export function readBackupZip(zip: Uint8Array): BackupData {
+  return readBackupContents(zip, false).data;
+}
+
+export function readBackupContents(zip: Uint8Array, withMedia = true): BackupContents {
   let files: Record<string, Uint8Array>;
   try {
-    files = unzipSync(zip, { filter: (f) => f.name === 'narratio.json' });
+    files = unzipSync(zip, { filter: (f) => f.name === 'narratio.json' || (withMedia && f.name.startsWith('Medien/')) });
   } catch {
     throw new BackupError('Die Datei ist kein gültiges ZIP');
   }
@@ -375,7 +425,13 @@ export function readBackupZip(zip: Uint8Array): BackupData {
   } catch {
     throw new BackupError('narratio.json ist beschädigt');
   }
-  return parseBackupData(parsed);
+  const data = parseBackupData(parsed);
+  const media = new Map<string, Uint8Array>();
+  for (const m of data.media ?? []) {
+    const bytes = files[mediaPath(m)];
+    if (bytes) media.set(m.hash, bytes);
+  }
+  return { data, media };
 }
 
 export function backupFileName(project: Project, now = new Date()): string {

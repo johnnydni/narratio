@@ -6,6 +6,7 @@ import type {
   Id,
   Item,
   ItemType,
+  MediaMeta,
   Profile,
   ProjectSnapshot,
   WorldVar,
@@ -21,12 +22,13 @@ import type {
  *   profiles        Y.Map    id → Profile (als Objekt)
  *   dialogs         Y.Map    dialogId → Y.Map { nodes: Y.Map<id, Y.Map>, edges: Y.Map<id, Edge> }
  *   scene:<id>      Y.XmlFragment   Szenentext, vom Editor zeichengenau zusammengeführt
+ *   media           Y.Map    hash → MediaMeta (ab Schema 2; die Dateien liegen im Blob-Speicher)
  *
  * Langtext (Szenen) wird per CRDT zeichengenau gemergt. Kurze Felder (Titel, Varianten-Texte)
  * sind "letzte Änderung gewinnt" pro Feld. Für einen Einzelnutzer auf mehreren Geräten genügt das;
  * Variantentexte zeichengenau zu mergen wäre ein späterer Ausbau.
  */
-export const SCHEMA_VERSION = 1;
+export const SCHEMA_VERSION = 2;
 
 export function newId(prefix = ''): Id {
   const rnd = crypto.getRandomValues(new Uint8Array(9));
@@ -43,6 +45,7 @@ export class Project {
   readonly worldVars: Y.Map<WorldVar>;
   readonly profiles: Y.Map<Profile>;
   readonly dialogs: Y.Map<Y.Map<Y.Map<unknown>>>;
+  readonly media: Y.Map<MediaMeta>;
 
   constructor(readonly doc: Y.Doc) {
     this.meta = doc.getMap('meta');
@@ -50,6 +53,7 @@ export class Project {
     this.worldVars = doc.getMap('worldVars');
     this.profiles = doc.getMap('profiles');
     this.dialogs = doc.getMap('dialogs');
+    this.media = doc.getMap('media');
   }
 
   transact(fn: () => void): void {
@@ -252,6 +256,40 @@ export class Project {
 
   deleteEdge(dialogId: Id, edgeId: Id): void {
     this.edgesOf(dialogId).delete(edgeId);
+  }
+
+  /* ---------------- Medien ---------------- */
+
+  listMedia(): MediaMeta[] {
+    return [...this.media.values()].sort((a, b) => b.addedAt.localeCompare(a.addedAt));
+  }
+
+  getMedia(hash: string): MediaMeta | undefined {
+    return this.media.get(hash);
+  }
+
+  /** Legt ein Medium an. Gibt es den Hash schon, bleibt der Eintrag und kommt aus dem Papierkorb zurück. */
+  addMedia(meta: MediaMeta): MediaMeta {
+    const existing = this.media.get(meta.hash);
+    if (existing) {
+      if (existing.trashedAt) this.updateMedia(meta.hash, { trashedAt: undefined });
+      return this.media.get(meta.hash)!;
+    }
+    this.media.set(meta.hash, meta);
+    return meta;
+  }
+
+  updateMedia(hash: string, patch: Partial<MediaMeta>): void {
+    const cur = this.media.get(hash);
+    if (!cur) return;
+    const next = { ...cur, ...patch };
+    for (const [k, v] of Object.entries(patch)) if (v === undefined) delete (next as Record<string, unknown>)[k];
+    this.media.set(hash, next);
+  }
+
+  /** Endgültig aus dem Projekt entfernen. Die Datei im Blob-Speicher räumt der Aufrufer weg. */
+  removeMedia(hash: string): void {
+    this.media.delete(hash);
   }
 
   /* ---------------- Gesamtstand ---------------- */

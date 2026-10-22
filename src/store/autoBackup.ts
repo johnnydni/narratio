@@ -1,6 +1,7 @@
 import type * as Y from 'yjs';
 import type { Project } from './project';
-import { backupFileName, createBackupZip } from './backup';
+import { backupFileName, createBackupZip, mediaPath } from './backup';
+import { getOriginal } from './blobs';
 
 /**
  * Automatische Sicherungen (SY-02).
@@ -120,6 +121,7 @@ interface DirHandle {
   queryPermission(o: { mode: 'readwrite' }): Promise<Permission>;
   requestPermission(o: { mode: 'readwrite' }): Promise<Permission>;
   getFileHandle(name: string, o: { create: boolean }): Promise<{ createWritable(): Promise<{ write(d: BlobPart): Promise<void>; close(): Promise<void> }> }>;
+  getDirectoryHandle(name: string, o: { create: boolean }): Promise<DirHandle>;
 }
 
 export type FolderState =
@@ -178,8 +180,34 @@ export async function writeToFolder(project: Project, now = new Date()): Promise
   const w = await file.createWritable();
   await w.write(createBackupZip(project, now));
   await w.close();
+  await writeMediaToFolder(project, h);
   await tx(SETTINGS, 'readwrite', (s) => s.put(now.toISOString(), 'folderLastWrite'));
   return true;
+}
+
+/**
+ * Medien landen nicht im täglichen ZIP (sonst läge jedes Bild jeden Tag einmal mehr auf der
+ * Platte), sondern einmal als Datei im Unterordner „Medien“. Dateien ändern sich nie, weil der
+ * Name den Hash enthält; vorhandene werden übersprungen.
+ */
+async function writeMediaToFolder(project: Project, root: DirHandle): Promise<void> {
+  const metas = project.listMedia();
+  if (!metas.length) return;
+  const dir = await root.getDirectoryHandle('Medien', { create: true });
+  for (const m of metas) {
+    const name = mediaPath(m).slice('Medien/'.length);
+    try {
+      await dir.getFileHandle(name, { create: false });
+      continue;
+    } catch {
+      // gibt es noch nicht
+    }
+    const blob = await getOriginal(m.hash);
+    if (!blob) continue;
+    const w = await (await dir.getFileHandle(name, { create: true })).createWritable();
+    await w.write(blob);
+    await w.close();
+  }
 }
 
 /* ---------------- Zeitplan ---------------- */

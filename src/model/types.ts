@@ -185,6 +185,43 @@ export interface DialogGraph {
   edges: DialogEdge[];
 }
 
+/* ------------------------------------------------------------------ */
+/* Medien                                                               */
+/* ------------------------------------------------------------------ */
+
+export type MediaKind = 'image' | 'pdf' | 'other';
+
+/**
+ * Ein Medium (ME-01, ME-02, ME-08). Die Datei selbst liegt nicht im Projekt-Dokument, sondern im
+ * Blob-Speicher unter ihrem SHA-256-Hash; hier stehen nur Metadaten. Gleiche Datei = gleicher
+ * Hash = ein Eintrag.
+ */
+export interface MediaMeta {
+  /** SHA-256 des Originals, hex. Zugleich die ID. */
+  hash: string;
+  kind: MediaKind;
+  /** Dateiname beim Import. */
+  name: string;
+  mime: string;
+  size: number;
+  width?: number;
+  height?: number;
+  /** Mittlere Farbe als Platzhalter beim Laden, z. B. "#a89f8c". */
+  color?: string;
+  caption?: string;
+  /** Herkunft: Quelle, Urheber, URL. */
+  source?: string;
+  addedAt: string;
+  /** Gesetzt = im Papierkorb. */
+  trashedAt?: string;
+}
+
+export function mediaKindOf(mime: string): MediaKind {
+  if (mime.startsWith('image/')) return 'image';
+  if (mime === 'application/pdf') return 'pdf';
+  return 'other';
+}
+
 /** Der gesamte, aus dem Store gelesene Projektstand (für Prüfung und Export). */
 export interface ProjectSnapshot {
   name: string;

@@ -56,6 +56,11 @@ export function useWorld() {
   }));
 }
 
+export function useMedia() {
+  const p = useProject();
+  return useObserved([p.media as unknown as Y.AbstractType<unknown>], () => p.listMedia());
+}
+
 export function usePeerCount(): number {
   const { sync } = useSession();
   return useSyncExternalStore(
@@ -69,6 +74,7 @@ export function usePeerCount(): number {
 export type View =
   | { kind: 'item'; id: Id }
   | { kind: 'world' }
+  | { kind: 'media' }
   | { kind: 'export' };
 
 export interface Nav {

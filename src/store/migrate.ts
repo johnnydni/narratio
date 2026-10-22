@@ -11,7 +11,12 @@ import { SCHEMA_VERSION } from './project';
 export type Migration = (project: Project) => void;
 
 /** Schlüssel = Zielversion. Version 1 ist der Ausgangsstand aus P0 und braucht keine Migration. */
-export const MIGRATIONS: Record<number, Migration> = {};
+export const MIGRATIONS: Record<number, Migration> = {
+  // Schema 2: Medien (Map "media"). Yjs legt die Map beim ersten Zugriff selbst an, es gibt also
+  // nichts umzubauen. Die Versionsnummer zählt trotzdem: Eine ältere narratio-Version würde
+  // Medien nicht kennen und beim Sichern verlieren; sie fasst ein Schema-2-Projekt nicht an.
+  2: () => undefined,
+};
 
 export interface MigrationResult {
   from: number;

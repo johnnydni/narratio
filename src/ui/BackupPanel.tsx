@@ -1,7 +1,9 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import * as Y from 'yjs';
 import { useProject } from './state';
-import { BackupError, backupFileName, createBackupZip, readBackupZip, restoreBackupData, type BackupData } from '../store/backup';
+import { BackupError, backupFileName, createBackupZipWithMedia, readBackupContents, restoreBackupData, type BackupContents } from '../store/backup';
+import { getOriginal } from '../store/blobs';
+import { storeBackupMedia } from '../store/media';
 import { migrate } from '../store/migrate';
 import {
   chooseFolder,
@@ -39,7 +41,7 @@ function when(iso: string): string {
 }
 
 type Pending =
-  | { kind: 'zip'; label: string; data: BackupData }
+  | { kind: 'zip'; label: string; contents: BackupContents }
   | { kind: 'legacy'; label: string; update: Uint8Array };
 
 /** Sicherung und Wiederherstellung (SY-02, EX-02). */
@@ -70,8 +72,10 @@ export function BackupPanel() {
       return;
     }
     try {
-      const data = readBackupZip(bytes);
-      setPending({ kind: 'zip', label: `„${f.name}“ vom ${when(data.createdAt)} mit ${data.items.length} Einträgen`, data });
+      const contents = readBackupContents(bytes);
+      const { data, media } = contents;
+      const mediaNote = data.media?.length ? ` und ${media.size} von ${data.media.length} Mediendateien` : '';
+      setPending({ kind: 'zip', label: `„${f.name}“ vom ${when(data.createdAt)} mit ${data.items.length} Einträgen${mediaNote}`, contents });
     } catch (e) {
       fail(e);
     }
@@ -81,10 +85,14 @@ export function BackupPanel() {
     if (!pending) return;
     try {
       await saveLocalBackup(project, 'vor-wiederherstellen');
-      if (pending.kind === 'zip') restoreBackupData(project, pending.data);
-      else Y.applyUpdate(project.doc, pending.update);
+      let note = '';
+      if (pending.kind === 'zip') {
+        const { corrupt } = await storeBackupMedia(pending.contents.media, pending.contents.data.media ?? []);
+        if (corrupt.length) note = ` ${corrupt.length} beschädigte Mediendatei(en) wurden übersprungen: ${corrupt.join(', ')}.`;
+        restoreBackupData(project, pending.contents.data);
+      } else Y.applyUpdate(project.doc, pending.update);
       migrate(project);
-      setMessage(`${pending.label} wiederhergestellt. Der vorherige Stand liegt unten unter „vor dem Wiederherstellen“.`);
+      setMessage(`${pending.label} wiederhergestellt. Der vorherige Stand liegt unten unter „vor dem Wiederherstellen“.${note}`);
     } catch (e) {
       fail(e);
     }
@@ -96,11 +104,17 @@ export function BackupPanel() {
     const zip = await getLocalBackup(b.createdAt);
     if (!zip) return;
     try {
-      const data = readBackupZip(zip);
-      setPending({ kind: 'zip', label: `Die Sicherung vom ${when(b.createdAt)}`, data });
+      setPending({ kind: 'zip', label: `Die Sicherung vom ${when(b.createdAt)}`, contents: readBackupContents(zip) });
     } catch (e) {
       fail(e);
     }
+  };
+
+  const downloadFull = async () => {
+    setMessage('Sicherung wird erstellt …');
+    const { zip, missing } = await createBackupZipWithMedia(project, getOriginal);
+    download(backupFileName(project), zip, 'application/zip');
+    setMessage(missing.length ? `Heruntergeladen. ${missing.length} Mediendatei(en) fehlen auf diesem Gerät: ${missing.join(', ')}.` : null);
   };
 
   const downloadLocal = async (b: LocalBackupMeta) => {
@@ -112,12 +126,12 @@ export function BackupPanel() {
     <div className="field">
       <span className="label">Sicherung</span>
       <p className="muted small" style={{ margin: 0, maxWidth: 680, lineHeight: 1.6 }}>
-        Eine Sicherung ist ein ZIP, das sich auch ohne narratio lesen lässt: Szenen und Lore als Markdown, dazu der vollständige Stand als JSON.
-        narratio sichert automatisch alle 15 Minuten, wenn sich etwas geändert hat, und behält die letzten 30 Tage.
+        Eine Sicherung ist ein ZIP, das sich auch ohne narratio lesen lässt: Szenen und Lore als Markdown, Medien als Originaldateien, dazu der vollständige Stand als JSON.
+        narratio sichert automatisch alle 15 Minuten, wenn sich etwas geändert hat, und behält die letzten 30 Tage. Diese automatischen Sicherungen im Browser enthalten die Medien nicht, nur ihre Liste; im Sicherungsordner liegen die Medien einmal im Unterordner „Medien“.
       </p>
 
       <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', alignItems: 'center' }}>
-        <button type="button" className="btn small" onClick={() => download(backupFileName(project), createBackupZip(project), 'application/zip')}>
+        <button type="button" className="btn small" onClick={() => void downloadFull()}>
           Sicherung herunterladen
         </button>
         <button type="button" className="btn small" onClick={() => fileRef.current?.click()}>Sicherung einlesen …</button>

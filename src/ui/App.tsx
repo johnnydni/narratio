@@ -12,6 +12,7 @@ import type { Item } from '../model/types';
 // Editor und Graph sind die größten Pakete; sie laden erst, wenn sie gebraucht werden.
 const SceneView = lazy(() => import('./SceneView'));
 const DialogView = lazy(() => import('./DialogView'));
+const MediaView = lazy(() => import('./MediaView'));
 
 function pathOf(items: Item[], id: string): string[] {
   const byId = new Map(items.map((i) => [i.id, i]));
@@ -36,7 +37,7 @@ function Topbar({ view }: { view: View }) {
     else document.documentElement.setAttribute('data-theme', theme);
   }, [theme]);
 
-  const path = view.kind === 'item' ? pathOf(items, view.id).join(' / ') : view.kind === 'world' ? 'Weltzustand' : 'Export';
+  const path = view.kind === 'item' ? pathOf(items, view.id).join(' / ') : view.kind === 'world' ? 'Weltzustand' : view.kind === 'media' ? 'Medien' : 'Export';
   const isDark = theme === 'dark' || (theme === 'system' && window.matchMedia('(prefers-color-scheme: dark)').matches);
 
   return (
@@ -73,6 +74,7 @@ function Main({ view }: { view: View }) {
   const item = useItem(view.kind === 'item' ? view.id : null);
   if (view.kind === 'world') return <WorldView />;
   if (view.kind === 'export') return <ExportView />;
+  if (view.kind === 'media') return <Suspense fallback={<div className="empty-state">Lädt …</div>}><MediaView /></Suspense>;
   if (!item) return <div className="empty-state">Wähle links eine Szene, einen Dialog oder einen Lore-Eintrag.</div>;
   return (
     <Suspense fallback={<div className="empty-state">Lädt …</div>}>
