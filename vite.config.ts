@@ -2,6 +2,8 @@ import { defineConfig } from 'vite';
 import react from '@vitejs/plugin-react';
 
 export default defineConfig({
+  // Auf GitHub Pages liegt die App unter /narratio/; lokal und in Tests unter /.
+  base: process.env.BASE_PATH ?? '/',
   plugins: [react()],
   build: {
     target: 'es2022',

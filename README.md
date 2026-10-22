@@ -39,6 +39,14 @@ npm run build      # Produktionsbuild nach dist/
 
 Beim ersten Start wird das Beispielprojekt „Aschenstadt“ angelegt.
 
+## Veröffentlichen auf GitHub Pages
+
+Jeder Push auf `main` baut die App und legt sie unter `https://johnnydni.github.io/narratio/` ab (`.github/workflows/pages.yml`). Einmalig nötig: im Repo unter **Settings → Pages → Source** „GitHub Actions“ wählen.
+
+Pages liefert nur die Dateien aus; die App läuft vollständig im Browser, die Daten liegen lokal. Jede Adresse hat ihren eigenen Speicher: Ein Projekt von `localhost` erscheint nicht automatisch auf der Pages-Seite. Zum Umziehen unter „Prüfen und exportieren“ eine Sicherung herunterladen und dort einlesen.
+
+Lokal unter dem Pages-Pfad testen: `BASE_PATH=/narratio/ npm run build && BASE_PATH=/narratio/ npx vite preview`, dann `http://localhost:4173/narratio/`.
+
 ## Aufbau
 
 ```
