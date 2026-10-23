@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState, useSyncExternalStore } from 'react';
+import { lazy, Suspense, useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState, useSyncExternalStore } from 'react';
 import {
   createProject,
   discoverProjects,
@@ -20,6 +20,7 @@ import { ToastProvider, useToast } from './motion';
 import { useTheme } from './theme';
 import { prefersReducedMotion } from './prefs';
 import { MOD, SettingsDialog } from './SettingsDialog';
+import { hash, shelfRows, spineHeight, spineWidth } from './books';
 
 /**
  * Die Bibliothek: jedes Projekt ein Buch im Regal. Die Breite des Rückens wächst mit dem
@@ -42,25 +43,20 @@ function ago(iso?: string): string {
   return '';
 }
 
-/** Kleiner, fester Zufall je Projekt: Höhe und Zierde des Buchs bleiben bei jedem Besuch gleich. */
-function hash(id: string): number {
-  let h = 2166136261;
-  for (let i = 0; i < id.length; i++) h = Math.imul(h ^ id.charCodeAt(i), 16777619);
-  return h >>> 0;
+/** Kann dieses Gerät WebGL 2? Dann steht das Regal in 3D, sonst bleibt es flach. */
+function webglOk(): boolean {
+  try {
+    const gl = document.createElement('canvas').getContext('webgl2');
+    gl?.getExtension('WEBGL_lose_context')?.loseContext();
+    return !!gl;
+  } catch {
+    return false;
+  }
 }
 
-function spineWidth(p: ProjectEntry): number {
-  const words = p.stats?.words ?? 0;
-  return Math.round(46 + Math.min(44, Math.log10(1 + words) * 10));
-}
-
-function spineHeight(p: ProjectEntry): number {
-  return 206 + (hash(p.id) % 5) * 9;
-}
-
-const GAP = 6;
-const BOOKEND = 34;
-const NEW_SLOT = 64;
+// Gleich mitladen, damit beim Ausblenden des Startbildschirms das Regal schon steht
+const shelf3d = typeof document !== 'undefined' && webglOk() ? import('./library3d/Shelf3D') : null;
+const Shelf3D = lazy(() => shelf3d!);
 
 function useProjects(): ProjectEntry[] {
   const raw = useSyncExternalStore(subscribeLibrary, () => localStorage.getItem('narratio:library') ?? '[]');
@@ -230,23 +226,7 @@ function Shelf({ books, render, tail }: { books: ProjectEntry[]; render: (p: Pro
     return () => ro.disconnect();
   }, []);
 
-  // Bücher auf Bretter verteilen: so viele, wie samt Buchstütze nebeneinander passen.
-  const rows = useMemo(() => {
-    const avail = width - 48 - BOOKEND;
-    const out: ProjectEntry[][] = [[]];
-    let used = 0;
-    for (const b of books) {
-      const w = spineWidth(b) + GAP;
-      if (used + w > avail && out[out.length - 1]!.length) {
-        out.push([]);
-        used = 0;
-      }
-      out[out.length - 1]!.push(b);
-      used += w;
-    }
-    if (used + NEW_SLOT > avail && out[out.length - 1]!.length) out.push([]);
-    return out;
-  }, [books, width]);
+  const rows = useMemo(() => shelfRows(books, width), [books, width]);
 
   return (
     <div className="shelf" ref={ref}>
@@ -289,11 +269,13 @@ function LibraryInner({ onReady }: { onReady: () => void }) {
     window.addEventListener('keydown', onKey);
     return () => window.removeEventListener('keydown', onKey);
   }, []);
+  const [flat, setFlat] = useState(!shelf3d);
+  const fallBack = useCallback(() => setFlat(true), []);
   const [confirmPurge, setConfirmPurge] = useState<string | null>(null);
   const fileRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
-    void discoverProjects()
+    void Promise.all([discoverProjects(), shelf3d?.catch(() => setFlat(true))])
       .catch(() => undefined)
       .finally(() => {
         setReady(true);
@@ -312,8 +294,8 @@ function LibraryInner({ onReady }: { onReady: () => void }) {
     setSelected(id);
     setOpening(id);
     const reduce = prefersReducedMotion();
-    setTimeout(() => { location.hash = `#/p/${id}`; }, reduce ? 0 : 420);
-  }, []);
+    setTimeout(() => { location.hash = `#/p/${id}`; }, reduce ? 0 : flat ? 420 : 640);
+  }, [flat]);
 
   // Pfeiltasten wandern durchs Regal, Enter schlägt auf
   useEffect(() => {
@@ -369,21 +351,35 @@ function LibraryInner({ onReady }: { onReady: () => void }) {
           </p>
         </div>
 
-        {ready && (
-          <Shelf
-            books={books}
-            render={(p) => (
-              <Book
-                p={p}
-                selected={selected === p.id}
-                opening={opening === p.id}
-                onSelect={() => setSelected(selected === p.id ? null : p.id)}
-                onOpen={() => open(p.id)}
+        {ready &&
+          (flat ? (
+            <Shelf
+              books={books}
+              render={(p) => (
+                <Book
+                  p={p}
+                  selected={selected === p.id}
+                  opening={opening === p.id}
+                  onSelect={() => setSelected(selected === p.id ? null : p.id)}
+                  onOpen={() => open(p.id)}
+                />
+              )}
+              tail={<NewBook onCreated={(id) => setSelected(id)} />}
+            />
+          ) : (
+            <Suspense fallback={null}>
+              <Shelf3D
+                books={books}
+                selected={selected}
+                opening={opening}
+                onSelect={(id) => setSelected(selected === id ? null : id)}
+                onOpen={open}
+                tail={<NewBook onCreated={(id) => setSelected(id)} />}
+                dark={theme.isDark}
+                onFail={fallBack}
               />
-            )}
-            tail={<NewBook onCreated={(id) => setSelected(id)} />}
-          />
-        )}
+            </Suspense>
+          ))}
 
         <div className="lib-detail-area">
           {current ? (
