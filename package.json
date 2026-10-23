@@ -36,6 +36,7 @@
     "lucide-react": "1.52.0",
     "react": "^19.3.1",
     "react-dom": "^19.3.1",
+    "three": "^0.180.0",
     "y-indexeddb": "^9.0.12",
     "y-protocols": "^1.0.7",
     "yjs": "^13.6.33"
@@ -44,6 +45,7 @@
     "@playwright/test": "1.56.1",
     "@types/react": "^19.0.0",
     "@types/react-dom": "^19.0.0",
+    "@types/three": "^0.180.0",
     "@vitejs/plugin-react": "^6.1.2",
     "fake-indexeddb": "^6.0.0",
     "typescript": "~5.9.3",

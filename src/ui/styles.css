@@ -711,7 +711,7 @@ kbd { font-family: var(--sans); font-size: 11px; border: 1px solid var(--line); 
   40% { transform: translateY(-34px) rotate(-2deg); }
   100% { transform: translateY(-46px) scale(1.12); opacity: 0; }
 }
-.library:has(.book.opening) .lib-main > :not(.shelf) { transition: opacity 0.3s ease; opacity: 0.2; }
+.library:has(.book.opening, .book3d-hit.opening) .lib-main > :not(.shelf):not(.shelf3d) { transition: opacity 0.3s ease; opacity: 0.2; }
 .book-title {
   writing-mode: vertical-rl; transform: rotate(180deg); font-family: var(--serif); font-weight: 500; font-size: 14px; letter-spacing: 0.03em;
   color: var(--cream); text-shadow: 0 1px 1px rgba(0, 0, 0, 0.35); max-height: 62%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; flex: 1; text-align: center; padding: 6px 0;
@@ -725,6 +725,22 @@ kbd { font-family: var(--sans); font-size: 11px; border: 1px solid var(--line); 
 .book-mark { font-family: var(--serif); font-size: 12px; color: var(--gilt); margin-top: 6px; width: 20px; height: 20px; border: 1px solid var(--gilt); border-radius: 50%; display: inline-flex; align-items: center; justify-content: center; flex-shrink: 0; }
 .c0 { --spine: #1f5c52; } .c1 { --spine: #7a2e2e; } .c2 { --spine: #2c3e63; } .c3 { --spine: #8a6a2a; }
 .c4 { --spine: #4b3a5e; } .c5 { --spine: #3d5a3a; } .c6 { --spine: #6b4a3a; } .c7 { --spine: #2f4f5f; }
+
+/* Regal in 3D: Canvas unten, unsichtbare Knöpfe darüber */
+.shelf3d { position: relative; animation: fade-in 0.5s ease both; }
+.shelf3d-canvas { display: block; }
+.shelf3d::after {
+  content: ''; position: absolute; inset: 0; pointer-events: none; border-radius: 6px;
+  background: radial-gradient(ellipse 75% 85% at 50% 40%, transparent 55%, color-mix(in srgb, var(--bg) 55%, transparent) 100%);
+}
+.shelf3d-hits { position: absolute; inset: 0; z-index: 1; }
+.book3d-hit {
+  position: absolute; left: 0; top: 0; width: 0; height: 0; padding: 0; border: 0; border-radius: 4px; background: transparent; cursor: pointer;
+  will-change: transform;
+}
+.book3d-hit:focus-visible { outline: 2px solid var(--accent); outline-offset: 3px; }
+.shelf3d-slot { position: absolute; left: 0; top: 0; will-change: transform; }
+.shelf3d .new-book { background: color-mix(in srgb, var(--surface) 22%, transparent); backdrop-filter: blur(2px); }
 
 /* Leerer Platz für ein neues Buch */
 .new-book-wrap { position: relative; display: flex; align-items: flex-end; animation: book-in 0.55s 0.3s var(--ease-out) both; }
