@@ -26,9 +26,13 @@ export const BOOKEND = 34;
 export const NEW_SLOT = 64;
 export const SHELF_PAD_X = 24;
 
-/** Bücher auf Bretter verteilen: so viele, wie samt Buchstütze nebeneinander passen. */
-export function shelfRows(books: ProjectEntry[], width: number): ProjectEntry[][] {
-  const avail = width - 2 * SHELF_PAD_X - BOOKEND;
+/**
+ * Bücher auf Bretter verteilen: so viele, wie samt Buchstütze nebeneinander passen.
+ * `reserveFirst` hält rechts im obersten Fach Platz frei (für die Lampe im 3D-Regal).
+ */
+export function shelfRows(books: ProjectEntry[], width: number, reserveFirst = 0): ProjectEntry[][] {
+  const full = width - 2 * SHELF_PAD_X - BOOKEND;
+  let avail = full - reserveFirst;
   const out: ProjectEntry[][] = [[]];
   let used = 0;
   for (const b of books) {
@@ -36,6 +40,7 @@ export function shelfRows(books: ProjectEntry[], width: number): ProjectEntry[][
     if (used + w > avail && out[out.length - 1]!.length) {
       out.push([]);
       used = 0;
+      avail = full;
     }
     out[out.length - 1]!.push(b);
     used += w;

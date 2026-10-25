@@ -376,6 +376,7 @@ function LibraryInner({ onReady }: { onReady: () => void }) {
                 onOpen={open}
                 tail={<NewBook onCreated={(id) => setSelected(id)} />}
                 dark={theme.isDark}
+                onLamp={theme.toggle}
                 onFail={fallBack}
               />
             </Suspense>
