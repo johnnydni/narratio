@@ -2,6 +2,7 @@ import { useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
 import type { ProjectEntry } from '../../store/library';
 import { BOOKEND, GAP, hash, NEW_SLOT, SHELF_PAD_X, shelfRows, SPINE_COLORS, spineHeight, spineWidth } from '../books';
 import { prefersReducedMotion } from '../prefs';
+import { clickSound, LAMP_WIDTH } from './lamp';
 import { LibraryScene, shelfHeight, type ScreenRect, type ShelfSpec } from './scene';
 
 /**
@@ -18,16 +19,19 @@ interface Props {
   onOpen: (id: string) => void;
   tail: React.ReactNode;
   dark: boolean;
+  /** Knopf an der Lampe: schaltet das Design um */
+  onLamp: () => void;
   /** WebGL fehlt oder ist abgestürzt: zurück zum flachen Regal */
   onFail: () => void;
 }
 
-export default function Shelf3D({ books, selected, opening, onSelect, onOpen, tail, dark, onFail }: Props) {
+export default function Shelf3D({ books, selected, opening, onSelect, onOpen, tail, dark, onLamp, onFail }: Props) {
   const wrapRef = useRef<HTMLDivElement>(null);
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const sceneRef = useRef<LibraryScene | null>(null);
   const btnRefs = useRef(new Map<string, HTMLButtonElement>());
   const slotRef = useRef<HTMLDivElement>(null);
+  const lampRef = useRef<HTMLButtonElement>(null);
   const [width, setWidth] = useState(0);
   const [hovered, setHovered] = useState<string | null>(null);
 
@@ -40,13 +44,14 @@ export default function Shelf3D({ books, selected, opening, onSelect, onOpen, ta
     return () => ro.disconnect();
   }, []);
 
-  const rows = useMemo(() => shelfRows(books, width || 1000), [books, width]);
+  const rows = useMemo(() => shelfRows(books, width || 1000, LAMP_WIDTH), [books, width]);
   const height = shelfHeight(rows.length);
 
   const spec = useMemo<ShelfSpec>(() => {
-    const out: ShelfSpec = { width, rows: rows.length, books: [], bookends: [], slot: null };
+    const out: ShelfSpec = { width, rows: rows.length, books: [], bookends: [], slot: null, lamp: { x: SHELF_PAD_X + 96, row: 0 } };
     rows.forEach((row, r) => {
-      let x = SHELF_PAD_X;
+      // im obersten Fach steht links die Lampe, die Bücher folgen rechts davon
+      let x = SHELF_PAD_X + (r === 0 ? LAMP_WIDTH : 0);
       for (const p of row) {
         const h = hash(p.id);
         out.books.push({ id: p.id, name: p.name, color: SPINE_COLORS[p.color % 8]!, deco: h % 3, seed: h, w: spineWidth(p), h: spineHeight(p), x, row: r });
@@ -73,7 +78,16 @@ export default function Shelf3D({ books, selected, opening, onSelect, onOpen, ta
     }
     sceneRef.current = scene;
     scene.setReducedMotion(prefersReducedMotion());
-    scene.onFrame = (rects: Map<string, ScreenRect>, slot: ScreenRect | null) => {
+    scene.onFrame = (rects: Map<string, ScreenRect>, slot: ScreenRect | null, lamp: ScreenRect | null) => {
+      const l = lampRef.current;
+      if (l && lamp) {
+        // der Knopf ist klein: Trefferfläche mindestens 36 px, um seine Mitte
+        const w = Math.max(36, lamp.w);
+        const h = Math.max(36, lamp.h);
+        l.style.transform = `translate(${lamp.x + lamp.w / 2 - w / 2}px, ${lamp.y + lamp.h / 2 - h / 2}px)`;
+        l.style.width = `${w}px`;
+        l.style.height = `${h}px`;
+      }
       for (const [id, r] of rects) {
         const b = btnRefs.current.get(id);
         if (!b) continue;
@@ -142,6 +156,20 @@ export default function Shelf3D({ books, selected, opening, onSelect, onOpen, ta
             data-testid="book"
           />
         ))}
+        <button
+          ref={lampRef}
+          type="button"
+          className="lamp3d-hit"
+          aria-pressed={dark}
+          aria-label="Schreibtischlampe"
+          title={dark ? 'Lampe ausschalten: helles Design' : 'Lampe einschalten: dunkles Design'}
+          data-testid="lamp-switch"
+          onClick={() => {
+            sceneRef.current?.pressLamp();
+            clickSound(!dark);
+            onLamp();
+          }}
+        />
         <div className="shelf3d-slot" ref={slotRef}>
           {tail}
         </div>

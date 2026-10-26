@@ -1,5 +1,6 @@
 import * as THREE from 'three';
 import { RoomEnvironment } from 'three/examples/jsm/environments/RoomEnvironment.js';
+import { DeskLamp } from './lamp';
 import { dustMaterial, wallMaterial, woodMaterial } from './shaders';
 import { leatherTexture, pagesTexture, spineTextures } from './textures';
 
@@ -43,6 +44,8 @@ export interface ShelfSpec {
   bookends: number[];
   /** Platz für ein neues Buch: x in px und Brett */
   slot: { x: number; row: number; w: number; h: number } | null;
+  /** Schreibtischlampe: Mitte in px und Brett */
+  lamp: { x: number; row: number } | null;
 }
 
 export interface ScreenRect {
@@ -105,11 +108,11 @@ const THEMES = {
     woodDark: '#2c2119',
     hemiSky: '#6a6a80',
     hemiGround: '#1a140f',
-    hemi: 0.35,
-    key: 3.6,
-    keyColor: '#ffd49a',
-    fill: 0.18,
-    env: 0.22,
+    hemi: 0.2,
+    key: 0.7,
+    keyColor: '#b9c3e0',
+    fill: 0.08,
+    env: 0.16,
     dust: 0.6,
     exposure: 1.0,
   },
@@ -135,9 +138,13 @@ export class LibraryScene {
   private dust: THREE.Points;
   private dustMat = dustMaterial();
 
-  private spec: ShelfSpec = { width: 0, rows: 0, books: [], bookends: [], slot: null };
+  private spec: ShelfSpec = { width: 0, rows: 0, books: [], bookends: [], slot: null, lamp: null };
   private size = { w: 1, h: 1 };
   private dark = false;
+  /** 0 = hell (Tageslicht), 1 = dunkel (nur die Lampe); läuft weich hinterher */
+  private mix = 0;
+  private themed = false;
+  readonly lamp = new DeskLamp();
   private reduced = false;
   private hovered: string | null = null;
   private selected: string | null = null;
@@ -151,7 +158,7 @@ export class LibraryScene {
   private disposed = false;
 
   /** Wird nach jedem Bild mit den Bildschirm-Rechtecken der Bücher aufgerufen. */
-  onFrame: (rects: Map<string, ScreenRect>, slot: ScreenRect | null) => void = () => {};
+  onFrame: (rects: Map<string, ScreenRect>, slot: ScreenRect | null, lamp: ScreenRect | null) => void = () => {};
 
   constructor(canvas: HTMLCanvasElement) {
     this.renderer = new THREE.WebGLRenderer({ canvas, antialias: true, alpha: true, powerPreference: 'high-performance' });
@@ -165,13 +172,14 @@ export class LibraryScene {
     this.pmrem = new THREE.PMREMGenerator(this.renderer);
     this.scene.environment = this.pmrem.fromScene(new RoomEnvironment(), 0.04).texture;
 
-    this.pages = pagesTexture(false);
+    this.pages = pagesTexture(false); // Papier und Gold bleiben gleich, nur das Licht wechselt
     this.pagesMat = new THREE.MeshStandardMaterial({ map: this.pages, roughness: 0.92 });
     this.wood = woodMaterial(new THREE.Color(), new THREE.Color());
     this.woodV = woodMaterial(new THREE.Color(), new THREE.Color(), true);
     this.wall = wallMaterial(new THREE.Color());
 
-    this.scene.add(this.cabinet, this.hemi, this.key, this.key.target, this.fill);
+    this.scene.add(this.cabinet, this.hemi, this.key, this.key.target, this.fill, this.lamp);
+    this.lamp.visible = false;
     this.key.castShadow = true;
     this.key.angle = 0.95;
     this.key.penumbra = 0.85;
@@ -221,15 +229,21 @@ export class LibraryScene {
     this.opening = s.opening;
   }
 
+  /** Hell oder dunkel. Beim ersten Aufruf sofort, danach schaltet die Lampe und der Raum folgt. */
   setTheme(dark: boolean) {
-    if (dark === this.dark) return;
+    const first = !this.themed;
+    this.themed = true;
+    if (dark === this.dark && !first) return;
     this.dark = dark;
-    this.applyTheme();
-    // Gold und Papier sehen im Dunkeln anders aus: Rücken neu zeichnen
-    for (const b of [...this.books.values()]) {
-      this.removeBook(b.spec.id);
-      this.addBook(b.spec, false);
-    }
+    this.lamp.setOn(dark, this.time, first || this.reduced);
+    if (first || this.reduced) this.mix = dark ? 1 : 0;
+    this.dirty = true;
+  }
+
+  /** Klick auf den Knopf: sofort sichtbar drücken, bevor das Design umschaltet */
+  pressLamp() {
+    this.lamp.press(this.time);
+    this.dirty = true;
   }
 
   /** Fonts sind geladen: Titel neu zeichnen, falls der Rücken mit der Ersatzschrift entstand. */
@@ -243,28 +257,33 @@ export class LibraryScene {
     }
   }
 
+  private dustKey = new THREE.Vector3();
+  private dustLamp = new THREE.Vector3();
+  private c1 = new THREE.Color();
+  private c2 = new THREE.Color();
+
+  /** Mischt helle und dunkle Lichtstimmung nach `this.mix`. */
   private applyTheme() {
-    this.dirty = true;
-    const t = this.dark ? THEMES.dark : THEMES.light;
-    this.wall.userData.uniforms.uColor.value.set(t.wall);
+    const L = THEMES.light;
+    const D = THEMES.dark;
+    const m = this.mix;
+    const num = (a: number, b: number) => a + (b - a) * m;
+    const col = (target: THREE.Color, a: string, b: string) => target.copy(this.c1.set(a)).lerp(this.c2.set(b), m);
+    col(this.wall.userData.uniforms.uColor.value, L.wall, D.wall);
     for (const w of [this.wood, this.woodV]) {
-      w.userData.uniforms.uLight.value.set(t.woodLight);
-      w.userData.uniforms.uDark.value.set(t.woodDark);
+      col(w.userData.uniforms.uLight.value, L.woodLight, D.woodLight);
+      col(w.userData.uniforms.uDark.value, L.woodDark, D.woodDark);
     }
-    this.hemi.color.set(t.hemiSky);
-    this.hemi.groundColor.set(t.hemiGround);
-    this.hemi.intensity = t.hemi;
-    this.key.color.set(t.keyColor);
-    this.key.intensity = t.key;
-    this.fill.intensity = t.fill;
-    this.scene.environmentIntensity = t.env;
-    this.dustMat.uniforms.uOpacity!.value = t.dust;
-    this.renderer.toneMappingExposure = t.exposure;
-    const old = this.pages;
-    this.pages = pagesTexture(this.dark);
-    this.pagesMat.map = this.pages;
-    this.pagesMat.needsUpdate = true;
-    old.dispose();
+    col(this.hemi.color, L.hemiSky, D.hemiSky);
+    col(this.hemi.groundColor, L.hemiGround, D.hemiGround);
+    this.hemi.intensity = num(L.hemi, D.hemi);
+    col(this.key.color, L.keyColor, D.keyColor);
+    this.key.intensity = num(L.key, D.key);
+    this.fill.intensity = num(L.fill, D.fill);
+    this.scene.environmentIntensity = num(L.env, D.env);
+    this.dustMat.uniforms.uOpacity!.value = num(L.dust, D.dust);
+    this.dustMat.uniforms.uLight!.value.lerpVectors(this.dustKey, this.dustLamp, m);
+    this.renderer.toneMappingExposure = num(L.exposure, D.exposure);
   }
 
   resize(w: number, h: number) {
@@ -281,6 +300,11 @@ export class LibraryScene {
     const old = this.spec;
     this.spec = spec;
     if (old.width !== spec.width || old.rows !== spec.rows) this.buildCabinet();
+    this.lamp.visible = !!spec.lamp;
+    if (spec.lamp) {
+      this.lamp.position.set(spec.lamp.x * U, -rowFloor(spec.lamp.row) * U, BOOK_FRONT - SHELF_DEPTH * 0.45);
+      this.lamp.scale.setScalar(1.25); // eine echte Bankerlampe ist gut eineinhalb Bücher hoch
+    }
 
     const keep = new Set(spec.books.map((b) => b.id));
     for (const id of [...this.books.keys()]) if (!keep.has(id)) this.removeBook(id);
@@ -319,9 +343,14 @@ export class LibraryScene {
     sc.far = 30;
     sc.updateProjectionMatrix();
 
-    this.dust.position.set(0.2, -H, -SHELF_DEPTH * 0.2);
-    this.dust.scale.set(spec.width * U - 0.4, H, SHELF_DEPTH + 2.0);
-    this.dustMat.uniforms.uLight!.value.copy(this.key.position).sub(this.dust.position).divide(this.dust.scale);
+    // Staub nur im Inneren des Regals
+    this.dust.position.set(0.3, -H + (BOTTOM_PAD + PLANK) * U, -SHELF_DEPTH);
+    this.dust.scale.set(spec.width * U - 0.6, H - (TOP_PAD + BOTTOM_PAD + PLANK) * U, SHELF_DEPTH + 0.3);
+    // Staub leuchtet unter der Lichtquelle: tagsüber unter der Deckenlampe, abends unter der Schreibtischlampe
+    this.dustKey.copy(this.key.position).sub(this.dust.position).divide(this.dust.scale);
+    this.lamp.updateWorldMatrix(true, true);
+    this.lamp.spot.getWorldPosition(this.dustLamp).sub(this.dust.position).divide(this.dust.scale);
+    this.applyTheme();
   }
 
   private camDist = 10;
@@ -330,7 +359,7 @@ export class LibraryScene {
   private dirty = true;
 
   private keyOf(b: BookSpec) {
-    return `${b.name}|${b.color}|${b.deco}|${b.w}|${b.h}|${this.dark ? 1 : 0}`;
+    return `${b.name}|${b.color}|${b.deco}|${b.w}|${b.h}`;
   }
 
   private buildCabinet() {
@@ -408,7 +437,7 @@ export class LibraryScene {
     geo.computeVertexNormals();
     geo.translate(0, h / 2, -BOOK_DEPTH / 2);
 
-    const { map, rm } = spineTextures({ name: spec.name, color: spec.color, deco: spec.deco, w: spec.w, h: spec.h, dark: this.dark, seed: spec.seed });
+    const { map, rm } = spineTextures({ name: spec.name, color: spec.color, deco: spec.deco, w: spec.w, h: spec.h, dark: false, seed: spec.seed });
     const bump = this.leather.clone();
     bump.repeat.set(spec.w / 60, spec.h / 60);
     bump.needsUpdate = true;
@@ -501,6 +530,16 @@ export class LibraryScene {
       g.scale.setScalar(p.s);
     }
 
+    // Raumlicht folgt der Lampe: erst klickt der Schalter, dann dimmt bzw. hellt der Raum
+    const want = this.dark ? 1 : 0;
+    if (Math.abs(want - this.mix) > 1e-3) {
+      this.mix += (want - this.mix) * (this.reduced ? 1 : 1 - Math.exp(-dt * 3.2));
+      if (Math.abs(want - this.mix) <= 1e-3) this.mix = want;
+      this.applyTheme();
+      moving = true;
+    }
+    if (this.lamp.update(this.time, dt, this.reduced)) moving = true;
+
     // Kamera folgt der Maus ein wenig: das Regal bekommt Tiefe, ohne dass etwas wackelt
     const follow = this.reduced ? 1 : 1 - Math.exp(-dt * 3);
     const aim = this.reduced ? new THREE.Vector2() : this.pointer;
@@ -517,7 +556,7 @@ export class LibraryScene {
 
     this.dustMat.uniforms.uTime!.value = this.time;
     this.renderer.render(this.scene, this.camera);
-    this.onFrame(this.rects(), this.slotRect());
+    this.onFrame(this.rects(), this.slotRect(), this.lamp.visible ? this.project(this.lamp.buttonBox(this.box)) : null);
   }
 
   private v = new THREE.Vector3();
@@ -568,6 +607,7 @@ export class LibraryScene {
     for (const id of [...this.books.keys()]) this.removeBook(id);
     this.scene.traverse((o) => (o as THREE.Mesh).geometry?.dispose());
     for (const m of [this.wood, this.woodV, this.wall, this.pagesMat, this.bookendMat, this.dustMat]) m.dispose();
+    this.lamp.dispose();
     this.leather.dispose();
     this.pages.dispose();
     this.scene.environment?.dispose();

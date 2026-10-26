@@ -293,6 +293,21 @@ test('Startbildschirm, Schnellsuche und Meldung mit Rückgängig', async ({ page
   await expect(page.getByTestId('media-grid').locator('img')).toHaveCount(1);
 });
 
+test('Bibliothek: Schreibtischlampe schaltet das dunkle Design ein und aus', async ({ page }) => {
+  await page.goto('/');
+  await expect(page.getByRole('heading', { name: 'Deine Bibliothek' })).toBeVisible();
+  await expect(page.getByTestId('book')).toHaveCount(1);
+  const lamp = page.getByTestId('lamp-switch');
+  // Ohne WebGL steht das flache Regal ohne Lampe da; dann gibt es hier nichts zu prüfen
+  test.skip((await page.locator('.shelf3d').count()) === 0, 'kein WebGL 2');
+  await expect(lamp).toHaveAttribute('aria-pressed', 'false');
+  await lamp.click();
+  await expect(page.locator('html')).toHaveAttribute('data-theme', 'dark');
+  await expect(lamp).toHaveAttribute('aria-pressed', 'true');
+  await lamp.click();
+  await expect(page.locator('html')).toHaveAttribute('data-theme', 'light');
+});
+
 test('Bibliothek: Regal, neues Buch anlegen, aufschlagen, zurück, Papierkorb', async ({ page }) => {
   await page.goto('/');
   await expect(page.getByRole('heading', { name: 'Deine Bibliothek' })).toBeVisible();
